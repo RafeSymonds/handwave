@@ -120,6 +120,11 @@ export class Link {
     if (this.ready && this.ws?.readyState === 1) this.ws.send(JSON.stringify(numbered));
   }
 
+  /** Input that goes now or not at all, with no number and no resend. */
+  sendNow(op) {
+    if (this.ready && this.ws?.readyState === 1) this.ws.send(JSON.stringify(op));
+  }
+
   setStatus(status) {
     if (status === this.status) return;
     this.status = status;

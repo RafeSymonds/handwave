@@ -1,5 +1,5 @@
 // What the deck is, without how it looks. The server reads this to validate votes
-// and steps, and the pages read it to build their views.
+// and steps and to run activities, and the pages read it to build their views.
 
 export const SLIDES = [
   {
@@ -51,6 +51,89 @@ export const SLIDES = [
     ],
   },
   {
+    id: 'race',
+    title: 'The slide is the level',
+    steps: 3,
+    // On this slide a plain drag draws, because the stroke you want starts on a box.
+    pointer: 'ink',
+    activity: {
+      kind: 'race',
+      ground: [
+        { id: 'race-state', x: 40, y: 640, width: 300, height: 170, words: 'state' },
+        { id: 'race-view', x: 520, y: 560, width: 300, height: 170, words: 'view(state)' },
+        { id: 'race-show', x: 1290, y: 480, width: 270, height: 170, words: 'stage.show' },
+      ],
+      goal: { id: 'race-flag', x: 1450, y: 390, size: 80 },
+      spawn: { on: 'race-state', from: 70, to: 310 },
+    },
+    notes: [
+      'Everyone finds their number on the screen and tries left, right and jump. Next starts the race and sends everyone back to the start.',
+      'Nobody can jump the second gap. Let a few fall, then draw a line from view(state) to stage.show. Your ink is ground. A line under a falling crowd catches it. Shift-drag moves a box with people on it.',
+      'The clock has stopped. These boxes are the same data the slide draws, and the server read them as a level. Esc removes your ink. Left goes back to race again.',
+    ],
+  },
+  {
+    id: 'queue',
+    title: 'You are the workers',
+    steps: 4,
+    activity: {
+      kind: 'queue',
+      loads: [
+        { load: 0.5, label: '50%' },
+        { load: 0.9, label: '90%' },
+        { load: 0.9, label: 'stop' },
+        { load: 0.5, label: '50%' },
+      ],
+    },
+    notes: [
+      'Each phone is a worker. Jobs arrive at half of what this room can finish, so the line stays short and most people wait. Next raises it to 90%.',
+      'There is still spare capacity, yet the line grows in lumps, because jobs arrive unevenly. Give it 30 seconds. Next asks everyone to stop.',
+      'Ask the room to stop tapping and count to ten aloud. Jobs held too long go back to the line. Workers turn red. Next asks them to start again.',
+      'Back to 50%. Point at the chart: the backlog takes far longer to clear than it took to build. That gap is why a brief outage hurts for so long.',
+    ],
+  },
+  {
+    id: 'draw',
+    title: 'Draw what happens when you tap a vote',
+    steps: 1,
+    activity: { kind: 'gallery', prompt: 'Draw what happens when you tap a vote' },
+    notes: [
+      'Everyone draws their picture of it. You see each drawing first, in this panel. Approve the ones worth talking about, and ask what each one assumes. Nothing reaches the screen unless you approve it. Project the audience screen, not this window.',
+    ],
+  },
+  {
+    id: 'choose',
+    title: 'What should I explain next?',
+    steps: 2,
+    vote: { options: ['How a dropped phone gets back in', 'How the server stays fast'], closeAt: 1 },
+    branch: ['back-in', 'fast'],
+    notes: [
+      'Voting is open. You have prepared both. Next closes the vote.',
+      'The room has picked. Next goes to the winner. A tie goes to the first option. Back from there returns here, and voting reopens if you go back one more.',
+    ],
+  },
+  {
+    id: 'back-in',
+    title: 'How a dropped phone gets back in',
+    steps: 1,
+    next: 'replay',
+    notes: ['The room chose this. Every change has a number, so a resend after a reconnect counts once.'],
+  },
+  {
+    id: 'fast',
+    title: 'How the server stays fast',
+    steps: 1,
+    next: 'replay',
+    notes: ['The room chose this. Screens get every frame, phones get a small status, and each phone has a limit on what it can send.'],
+  },
+  {
+    id: 'replay',
+    title: 'This talk was recorded as changes',
+    steps: 1,
+    activity: { kind: 'log' },
+    notes: ['The room has been logging everything it showed. Use "Open the replay" below to scrub through it. It holds approved drawings only. Save it as a file to keep it.'],
+  },
+  {
     id: 'end',
     title: 'Would you use this in your next talk?',
     steps: 2,
@@ -66,3 +149,16 @@ export const slideById = (id) => SLIDES.find((s) => s.id === id);
 
 /** Voting runs from a slide's first step until its `closeAt` step. */
 export const voteOpen = (slide, step) => Boolean(slide.vote) && step < (slide.vote.closeAt ?? Infinity);
+
+/** The option in the lead. The first listed wins a tie, so Next always has one answer. */
+export function winningOption(counts = []) {
+  let best = 0;
+  counts.forEach((n, i) => { if (n > (counts[best] ?? 0)) best = i; });
+  return best;
+}
+
+/** Where Next goes from the end of a slide, if not simply the next in the list. */
+export function branchTarget(slide, counts) {
+  if (slide.branch) return slide.branch[winningOption(counts)];
+  return slide.next ?? null;
+}

@@ -2,7 +2,7 @@
 // this same reducer, so a copy built from a full state plus later changes always
 // matches the server's. Runs in the browser and in Node.
 
-import { SLIDES, slideById } from './meta.js';
+import { SLIDES, branchTarget, slideById } from './meta.js';
 
 export const newState = () => ({
   index: 0,
@@ -13,6 +13,9 @@ export const newState = () => ({
   shown: null,    // the question on the shared screen: {id, text}
   questions: [],  // the presenter's queue. Other roles receive it empty.
   counts: { phones: 0, screens: 0 },
+  live: {},       // slide id -> what an activity shows on the shared screen. Phones receive it empty.
+  review: {},     // slide id -> what waits for the presenter's decision. Other roles receive it empty.
+  cameFrom: {},   // slide index -> the slide index that led to it, for Back on a branching talk
 });
 
 export function apply(s, op) {
@@ -20,6 +23,7 @@ export function apply(s, op) {
     case 'goto':
       s.index = op.index;
       s.step = op.step;
+      if (op.from !== undefined) s.cameFrom[op.index] = op.from;
       break;
     case 'offset':
       (s.offsets[op.slide] ??= {})[op.id] = [op.dx, op.dy];
@@ -55,21 +59,49 @@ export function apply(s, op) {
     case 'counts':
       s.counts = op.counts;
       break;
+    case 'act-frame':
+      s.live[op.slide] = op.frame;
+      break;
+    case 'gal-in':
+      (s.review[op.slide] ??= []).push(op.item);
+      break;
+    case 'gal-out':
+      if (s.review[op.slide]) s.review[op.slide] = s.review[op.slide].filter((k) => k.id !== op.id);
+      break;
+    case 'gal-show':
+      ((s.live[op.slide] ??= {}).shown ??= []).push(op.item);
+      break;
+    case 'gal-pull':
+      if (s.live[op.slide]?.shown) s.live[op.slide].shown = s.live[op.slide].shown.filter((k) => k.id !== op.id);
+      break;
+    case 'gal-count':
+      (s.live[op.slide] ??= {}).waiting = op.waiting;
+      break;
     default:
       break;
   }
   return s;
 }
 
-/** The step before or after this one, across slides. Stays put at either end. */
-export function stepFrom(index, step, delta) {
+/**
+ * The step before or after this one. Next follows a slide's branch or `next`. Back
+ * returns the way the talk came, so it retraces whichever branch the room picked.
+ */
+export function stepFrom(state, delta) {
+  const { index, step } = state;
   const slide = SLIDES[index];
   if (delta > 0) {
     if (step + 1 < slide.steps) return { index, step: step + 1 };
-    if (index + 1 < SLIDES.length) return { index: index + 1, step: 0 };
+    const target = branchTarget(slide, state.tallies[slide.id]);
+    if (target) {
+      const to = SLIDES.indexOf(slideById(target));
+      return { index: to, step: 0, from: index };
+    }
+    if (index + 1 < SLIDES.length) return { index: index + 1, step: 0, from: index };
   } else {
     if (step > 0) return { index, step: step - 1 };
-    if (index > 0) return { index: index - 1, step: SLIDES[index - 1].steps - 1 };
+    const back = state.cameFrom[index] ?? index - 1;
+    if (back >= 0) return { index: back, step: SLIDES[back].steps - 1 };
   }
   return { index, step };
 }
@@ -90,7 +122,9 @@ export function cleanPresenterOp(op, state) {
     case 'goto': {
       const slide = SLIDES[op.index];
       if (!slide || !Number.isInteger(op.step) || op.step < 0 || op.step >= slide.steps) return null;
-      return { t: 'goto', index: op.index, step: op.step };
+      const clean = { t: 'goto', index: op.index, step: op.step };
+      if (Number.isInteger(op.from) && SLIDES[op.from]) clean.from = op.from;
+      return clean;
     }
     case 'offset':
       if (!slideOk || !okId(op.id) || !okNumber(op.dx) || !okNumber(op.dy)) return null;

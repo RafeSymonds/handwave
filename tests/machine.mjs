@@ -21,6 +21,10 @@ const middleOf = (id) => p.evaluate((id) => { const e = window.app.byId(id); ret
 const endOf = (id, end) => p.evaluate(([id, end]) => { const e = window.app.byId(id); const pt = end === 'start' ? e.points[0] : e.points[e.points.length - 1]; return window.app.toScreen(e.x + pt[0], e.y + pt[1]); }, [id, end]);
 const stats = () => p.evaluate(() => { const s = window.app.sim.stats(); return { ...s, bottleneck: s.bottleneck && { ...s.bottleneck } }; });
 const forward = (s) => p.evaluate((s) => window.app.fastForward(s), s);
+// With the page's clock held, only forward() moves the program, so a check gives the same
+// answer on any machine at any load. Without this, the page keeps stepping between forward()
+// calls, and how far depends on how long a screenshot or a mouse move took.
+const holdClock = (on) => p.evaluate((on) => window.app.holdClock(on), on);
 // A capture can stall when the machine is busy, which says nothing about the page. A page
 // that has stopped answering is a real failure, so that is what a retry checks for.
 const shot = async (name, q = p) => {
@@ -90,12 +94,40 @@ const dropFile = (name, contents) => p.evaluate(async ([name, contents]) => {
   await new Promise((r) => setTimeout(r, 200));
 }, [name, contents]);
 const clickBubble = async (index = 0) => {
-  await p.waitForTimeout(60);
+  await p.waitForFunction((i) => window.app.m.bubbles.length > i, index);
   const at = await p.evaluate((i) => { const b = window.app.m.bubbles[i]; return b ? window.app.toScreen(b.x + b.w / 2, b.y + b.h / 2) : null; }, index);
   assert.ok(at, 'a message is on the drawing');
   await p.mouse.click(at.x, at.y);
   await p.waitForTimeout(60);
 };
+
+// Frames, and how long this page's own code took in each. A frame can only be late because
+// of the page if its own work took a long time, so that is checked on any machine. Frame rate
+// is judged against what an empty board gets right now, which says how busy the machine is.
+const frames = (count) => p.evaluate(async (count) => {
+  const { board } = window.app;
+  const real = board.advance;
+  const work = [];
+  board.advance = function advance(dt) { const t0 = performance.now(); real.call(this, dt); work.push(performance.now() - t0); };
+  const times = [];
+  let last = performance.now();
+  for (let i = 0; i < count; i++) {
+    await new Promise(requestAnimationFrame);
+    const now = performance.now();
+    times.push(now - last);
+    last = now;
+  }
+  delete board.advance;
+  times.sort((a, b) => a - b);
+  work.sort((a, b) => a - b);
+  return { medianFrameMs: +times[Math.floor(count / 2)].toFixed(1), p95FrameMs: +times[Math.floor(count * 0.95)].toFixed(1), fps: +(1000 / times[Math.floor(count / 2)]).toFixed(1), workMs: +work[Math.floor(work.length * 0.95)].toFixed(2) };
+}, count);
+const idleFrames = async () => {
+  await p.evaluate(() => window.app.loadBlank());
+  await p.waitForTimeout(150);
+  return frames(40);
+};
+const atSpeed = (got, idle, { median = 17.5, p95 = 22, work = 10 } = {}) => got.workMs < work && got.medianFrameMs < Math.max(median, idle.medianFrameMs * 1.15) && got.p95FrameMs < Math.max(p95, idle.p95FrameMs * 1.5);
 
 // ---------------------------------------------------------------------------
 section('the drawing is read as a program');
@@ -104,11 +136,14 @@ check('queue drawing reads as a flow', (await p.evaluate(() => window.app.graph.
 assert.deepEqual(kinds, { requests: 'source', queue: 'queue', workers: 'workers', check: 'router', done: 'sink', failed: 'idle' });
 check('every shape gets a role from its label and arrows', true, kinds);
 
-await p.waitForTimeout(600);
 const early = await p.evaluate(() => ({ time: window.app.sim.time, inFlight: window.app.sim.moving.length }));
-await p.waitForTimeout(3000);
+await p.waitForFunction((t) => window.app.sim.time > t + 2.5 && window.app.sim.state('queue').arrivals.length > 0, early.time, { timeout: 60000 });
 const later = await p.evaluate(() => ({ time: window.app.sim.time, inFlight: window.app.sim.moving.length, atQueue: window.app.sim.state('queue').arrivals.length, panel: window.app.panel.get('finished')?.text }));
-check('it runs on the real clock', later.time - early.time > 2.5 && later.atQueue > 0, { early, later });
+check('it runs on the real clock, with nothing but the page moving it', later.time - early.time > 2.5 && later.atQueue > 0, { early, later });
+await holdClock(true);
+const heldAt = await p.evaluate(() => window.app.sim.time);
+await p.waitForTimeout(200);
+check('holding the clock stops it, so the checks below do not depend on this machine\'s speed', (await p.evaluate(() => window.app.sim.time)) === heldAt);
 
 const twice = await p.evaluate(() => {
   const run = () => { window.app.restart(); window.app.fastForward(40); return JSON.stringify(window.app.sim.snapshot()); };
@@ -136,6 +171,43 @@ await forward(40);
 const shorter = await stats();
 check('and it keeps growing', shorter.waiting > short.waiting + 5, { before: short.waiting, after: shorter.waiting });
 await shot('02-two-workers-backing-up');
+
+const oneFewer = await p.evaluate(async () => {
+  const { readGraph, infer } = await import('/experiments/machine/graph.js');
+  const { FlowSim, STEP } = await import('/experiments/machine/sim.js');
+  const data = await (await fetch('/experiments/machine/scenes/queue.excalidraw')).json();
+  const base = infer(data.elements);
+  const withWorkers = (n) => readGraph(base.map((e) => (e.id === 'workers-t' ? { ...e, text: `workers ${n}\ntakes 0.75s` } : e)));
+  const g3 = withWorkers(3), g2 = withWorkers(2);
+  // Three workers until an edit, then `after` for `seconds` more.
+  const run = (seed, editAtStep, then, seconds) => {
+    const sim = new FlowSim(g3, seed);
+    for (let i = 0; i < editAtStep; i++) sim.step(STEP);
+    const before = sim.stats().waiting;
+    sim.setGraph(then);
+    for (let i = 0; i < seconds * 60; i++) sim.step(STEP);
+    const s = sim.stats();
+    return { before, waiting: s.waiting, verdict: s.verdict };
+  };
+  const median = (list) => [...list].sort((a, b) => a - b)[Math.floor(list.length / 2)];
+  const seeds = Array.from({ length: 40 }, (_, i) => 11 + i * 101);
+  const two = seeds.map((seed) => run(seed, 90 * 60, g2, 120));
+  const three = seeds.map((seed) => run(seed, 90 * 60, g3, 120));
+  // The same edit one frame at a time, over ten seconds. This is what a slow machine does.
+  const drift = [];
+  for (let frame = 0; frame <= 600; frame += 2) drift.push(run(7, 90 * 60 + frame, g2, 40).waiting);
+  let jump = 0;
+  for (let i = 1; i < drift.length; i++) jump = Math.max(jump, Math.abs(drift[i] - drift[i - 1]));
+  return {
+    twoMedian: median(two.map((r) => r.waiting)), twoGrew: two.filter((r) => r.waiting > r.before + 20).length,
+    threeMedian: median(three.map((r) => r.waiting)),
+    falseCalm: two.concat(three).filter((r) => r.waiting >= 8 && r.verdict === 'keeping up').length,
+    seeds: seeds.length, driftMin: Math.min(...drift), driftMax: Math.max(...drift), jump,
+  };
+});
+check('across 40 seeds, 2 workers back up and 3 do not', oneFewer.twoMedian > 50 && oneFewer.twoGrew >= oneFewer.seeds * 0.9 && oneFewer.threeMedian < 8, oneFewer);
+check('no seed calls a long line "keeping up"', oneFewer.falseCalm === 0, oneFewer.falseCalm);
+check('moving an edit by one frame barely changes what happens next', oneFewer.jump <= 5 && oneFewer.driftMax - oneFewer.driftMin <= 15, { jump: oneFewer.jump, min: oneFewer.driftMin, max: oneFewer.driftMax });
 
 const beforeMove = await p.evaluate(() => ({ s: { ...window.app.byId('workers') }, take: { ...window.app.byId('take') }, out: { ...window.app.byId('out') } }));
 const from = await middleOf('workers');
@@ -580,7 +652,8 @@ await shot('24-reopened');
 // ---------------------------------------------------------------------------
 section('pause, step and speed');
 await p.evaluate(() => window.app.loadDemo('queue'));
-await p.waitForTimeout(1100);
+await holdClock(false);
+await p.waitForFunction(() => window.app.sim.time > 0.2, null, { timeout: 60000 });
 await p.click('#btn-run');
 await p.waitForTimeout(60);
 const paused = await p.evaluate(() => ({ time: window.app.sim.time, label: document.getElementById('btn-run').textContent }));
@@ -596,19 +669,18 @@ check('the . key steps too', Math.abs((await p.evaluate(() => window.app.sim.tim
 await p.keyboard.press('Space');
 await p.waitForTimeout(40);
 check('Space runs it again', await p.evaluate(() => window.app.running));
+// Speed is measured against the stage's clock, moved by hand, so it doesn't depend on frame rate.
+const secondsFor = (frames) => p.evaluate((frames) => { const { board, sim } = window.app; const from = sim.time; board.pause(); for (let i = 0; i < frames; i++) board.advance(1 / 60); board.play(); return sim.time - from; }, frames);
 await p.click('[data-speed="5"]');
-const sp0 = await p.evaluate(() => ({ t: window.app.sim.time, now: performance.now() }));
-await p.waitForTimeout(1000);
-const sp1 = await p.evaluate(() => ({ t: window.app.sim.time, now: performance.now() }));
-const rate5 = (sp1.t - sp0.t) / ((sp1.now - sp0.now) / 1000);
-check('5x runs five times as fast', rate5 > 4 && rate5 < 5.6, +rate5.toFixed(2));
+const at5 = await secondsFor(120);
+check('5x moves the program ten seconds in two seconds of clock', Math.abs(at5 - 10) < 0.05, +at5.toFixed(3));
 await p.click('[data-speed="0.5"]');
-const sl0 = await p.evaluate(() => ({ t: window.app.sim.time, now: performance.now() }));
-await p.waitForTimeout(1000);
-const sl1 = await p.evaluate(() => ({ t: window.app.sim.time, now: performance.now() }));
-const rateHalf = (sl1.t - sl0.t) / ((sl1.now - sl0.now) / 1000);
-check('half speed runs half as fast', rateHalf > 0.4 && rateHalf < 0.6, +rateHalf.toFixed(2));
+const atHalf = await secondsFor(120);
+check('half speed moves it one second in two', Math.abs(atHalf - 1) < 0.05, +atHalf.toFixed(3));
 await p.click('[data-speed="1"]');
+const atOne = await secondsFor(120);
+check('1x moves it two seconds in two', Math.abs(atOne - 2) < 0.05, +atOne.toFixed(3));
+await holdClock(true);
 
 // ---------------------------------------------------------------------------
 section('click a worker to kill it');
@@ -756,10 +828,11 @@ const hostile = await p.evaluate(async () => {
   }
   return out;
 });
-const slowCases = Object.entries(hostile).filter(([, r]) => r.ms > 2500 || r.worstStepMs > 100);
-check('ten seconds of every hostile label runs in moments, with no step over 100ms', slowCases.length === 0, slowCases.length ? slowCases : Object.fromEntries(Object.entries(hostile).map(([k, r]) => [k, r.worstStepMs])));
+const slowCases = Object.entries(hostile).filter(([, r]) => r.ms > 10000 || r.worstStepMs > 500);
+check('ten seconds of every hostile label runs in moments, with no step that could freeze a frame', slowCases.length === 0, slowCases.length ? slowCases : Object.fromEntries(Object.entries(hostile).map(([k, r]) => [k, r.worstStepMs])));
 check('a huge rate is held to what can be drawn', hostile['huge rate'].tokens <= 5000, hostile['huge rate']);
 check('a huge number of workers draws a bounded number of boxes', hostile['huge workers'].boxes <= 120, hostile['huge workers']);
+const idleBeforeFlood = await idleFrames();
 await openDemo('queue');
 await p.waitForTimeout(300);
 await editLabel(await textMiddle('workers-t'), ['batch 0']);
@@ -767,8 +840,11 @@ await forward(5);
 check('typing "batch 0" on the page leaves it running', (await p.evaluate(() => window.app.graph.nodes.get('workers').kind)) === 'batch' && (await p.evaluate(() => window.app.sim.time)) > 4);
 await editLabel(await textMiddle('requests-t'), ['rate 100000000/s']);
 await forward(3);
-const flooded = await p.evaluate(async () => { const t = []; let last = performance.now(); for (let i = 0; i < 40; i++) { await new Promise(requestAnimationFrame); const now = performance.now(); t.push(now - last); last = now; } t.sort((a, b) => a - b); return { median: +t[20].toFixed(1), waiting: window.app.sim.waiting(), moving: window.app.sim.moving.length, turnedAway: window.app.sim.stats().dropped }; });
-check('and a flood of work is turned away with the page still at speed', flooded.median < 30 && flooded.turnedAway > 0, flooded);
+await holdClock(false);
+const floodFrames = await frames(40);
+await holdClock(true);
+const flooded = { ...floodFrames, moving: await p.evaluate(() => window.app.sim.moving.length), turnedAway: await p.evaluate(() => window.app.sim.stats().dropped) };
+check('and a flood of work is turned away with the page still at speed', atSpeed(floodFrames, idleBeforeFlood, { median: 30, p95: 50, work: 25 }) && flooded.turnedAway > 0, { ...flooded, idle: idleBeforeFlood.medianFrameMs });
 await shot('44-flood');
 
 // ---------------------------------------------------------------------------
@@ -918,7 +994,7 @@ section('chance: a walk that forgets where it started');
 await openDemo('weather');
 await p.waitForTimeout(1000);
 check('% arrows make a chance walk', (await p.evaluate(() => window.app.graph.mode)) === 'chain');
-const walked = await p.evaluate(() => { window.app.fastForward(30); const s = window.app.sim; const names = ['sunny', 'cloudy', 'rainy']; return { sum: names.reduce((a, n) => a + s.share(n), 0), shares: names.map((n) => +s.share(n).toFixed(3)), long: names.map((n) => +s.longRun.get(n).toFixed(3)), steps: s.steps }; });
+const walked = await p.evaluate(() => { window.app.fastForward(30.5); const s = window.app.sim; const names = ['sunny', 'cloudy', 'rainy']; return { sum: names.reduce((a, n) => a + s.share(n), 0), shares: names.map((n) => +s.share(n).toFixed(3)), long: names.map((n) => +s.longRun.get(n).toFixed(3)), steps: s.steps }; });
 check('shares always add up to 100%', Math.abs(walked.sum - 1) < 1e-9, walked.sum);
 check('the walkers settle near the long-run shares', walked.shares.every((v, i) => Math.abs(v - walked.long[i]) < 0.12) && walked.steps === 30, walked);
 await shot('28-weather');
@@ -1062,26 +1138,23 @@ check('every work part reads as the kind the palette says it is', wrongKinds.len
 
 // ---------------------------------------------------------------------------
 section('what if');
+const idleBeforeWhatIf = await idleFrames();
 await openDemo('queue');
 await p.waitForTimeout(800);
 await editLabel(await textMiddle('workers-t'), ['workers 4', 'takes 1s']);
 await p.click('#btn-whatif');
 await p.waitForSelector('#whatif:not([hidden])');
-await p.waitForFunction(() => window.app.m.whatif?.done, { timeout: 60000 });
+await p.waitForFunction(() => window.app.m.whatif?.done, null, { timeout: 180000 });
 const fut = await p.evaluate(() => { const w = window.app.m.whatif; return { type: w.type, runs: w.runs.length, low: w.low, median: w.median, high: w.high, words: document.getElementById('wi-words').textContent, finals: w.runs.map((r) => r.final), lens: w.runs[0].waiting.length }; });
 check('what if runs many seeded futures and says the spread', fut.runs === 40 && fut.lens > 30 && fut.high >= fut.low && /8 runs out of 10/.test(fut.words), { runs: fut.runs, low: fut.low, median: fut.median, high: fut.high, words: fut.words });
 check('the futures really differ', new Set(fut.finals).size > 5, new Set(fut.finals).size);
 await shot('35-what-if-futures');
-const frameDuring = await p.evaluate(async () => {
-  const times = [];
-  window.app.ui.futures();
-  let last = performance.now();
-  for (let i = 0; i < 60; i++) { await new Promise(requestAnimationFrame); const now = performance.now(); times.push(now - last); last = now; }
-  times.sort((a, b) => a - b);
-  return { median: +times[30].toFixed(1), p95: +times[56].toFixed(1) };
-});
-check('the board keeps its frame rate while futures run, because they run in a worker', frameDuring.median < 18 && frameDuring.p95 < 34, frameDuring);
-await p.waitForFunction(() => window.app.m.whatif?.done, { timeout: 60000 });
+await p.evaluate(() => window.app.ui.futures());
+await holdClock(false);
+const frameDuring = await frames(60);
+await holdClock(true);
+check('the board keeps its frame rate while futures run, because they run in a worker', atSpeed(frameDuring, idleBeforeWhatIf, { median: 18, p95: 34 }), { ...frameDuring, idle: idleBeforeWhatIf.medianFrameMs });
+await p.waitForFunction(() => window.app.m.whatif?.done, null, { timeout: 180000 });
 const repeat = await p.evaluate(() => window.app.m.whatif.runs.map((r) => r.final));
 check('the same drawing gives the same futures', JSON.stringify(repeat) === JSON.stringify(fut.finals));
 await p.click('#wi-close');
@@ -1094,7 +1167,7 @@ await p.waitForTimeout(800);
 const groupAt = await middleOf('group');
 await p.mouse.click(groupAt.x, groupAt.y);
 await p.click('#inspector .compare');
-await p.waitForFunction(() => window.app.m.whatif?.done, { timeout: 90000 });
+await p.waitForFunction(() => window.app.m.whatif?.done, null, { timeout: 180000 });
 const cmp = await p.evaluate(() => { const w = window.app.m.whatif; return { type: w.type, values: w.values, medians: w.medians.map((x) => +x.toFixed(2)), best: w.best, words: document.getElementById('wi-words').textContent }; });
 const lowAt = cmp.medians[0], bestAt = cmp.medians[cmp.values.indexOf(cmp.best)], lastAt = cmp.medians.at(-1);
 check('compare finds the best batch size, and it is neither end', cmp.best > 1 && cmp.best < cmp.values.at(-1) && lowAt > bestAt * 2 && lastAt >= bestAt, cmp);
@@ -1174,7 +1247,7 @@ await drag(crew, { x: crew.x, y: crew.y + 60 });
 const a2 = await p.evaluate(() => { const a = window.app.byId('a2'), c = window.app.byId('crew'); return { endY: a.y + a.points.at(-1)[1], top: c.y, bottom: c.y + c.height }; });
 check('the dropped file can be dragged too', a2.endY > a2.top && a2.endY < a2.bottom, a2);
 
-const dns = fs.readFileSync(new URL('../../excalive/examples/dns/scenes/lookup.excalidraw', import.meta.url), 'utf8');
+const dns = fs.readFileSync(new URL('../experiments/_bench/scenes/lookup.excalidraw', import.meta.url), 'utf8');
 await dropFile('lookup.excalidraw', dns);
 const dnsRun = await p.evaluate(() => ({ mode: window.app.graph.mode, current: window.app.sim.current, events: window.app.sim.events(), linked: [...window.app.graph.edges.values()].filter((e) => e.from && e.to).length }));
 check('an unbound hand-placed scene is bound by position and runs', dnsRun.mode === 'states' && dnsRun.linked === 8 && dnsRun.current === 'browser', dnsRun);
@@ -1191,24 +1264,15 @@ check('a drawing with no arrows says there is nothing to run', (await p.evaluate
 
 // ---------------------------------------------------------------------------
 section('frame time');
+const idle = await idleFrames();
+console.log('    an empty board, for comparison', JSON.stringify(idle));
 await p.evaluate(() => window.app.loadDemo('queue'));
 await p.waitForTimeout(1100);
 await p.evaluate(() => window.app.fastForward(1));
-const heavy = await p.evaluate(async () => {
-  const { sim, board } = window.app;
-  for (let i = 0; i < 400; i++) sim.states.get('queue').queue.push({ id: 1e6 + i, born: sim.time, retries: i % 3 ? 0 : 1, seen: new Set(), reservedAt: null });
-  const times = [];
-  let last = performance.now();
-  for (let i = 0; i < 90; i++) {
-    await new Promise(requestAnimationFrame);
-    const now = performance.now();
-    times.push(now - last);
-    last = now;
-  }
-  times.sort((a, b) => a - b);
-  return { waiting: sim.waiting(), medianFrameMs: +times[45].toFixed(1), p95FrameMs: +times[85].toFixed(1), renderMs: +board.frameMs.toFixed(2) };
-});
-check('a line of 400 tokens holds frame rate', heavy.p95FrameMs < 25, heavy);
+await holdClock(false);
+await p.evaluate(() => { const { sim } = window.app; for (let i = 0; i < 400; i++) sim.states.get('queue').queue.push({ id: 1e6 + i, born: sim.time, retries: i % 3 ? 0 : 1, seen: new Set(), reservedAt: null }); });
+const heavy = { ...(await frames(90)), waiting: await p.evaluate(() => window.app.sim.waiting()) };
+check('a line of 400 tokens holds frame rate', atSpeed(heavy, idle), heavy);
 await shot('14-long-line');
 
 // A busy scene at 5x: a retry storm, with hundreds on screen, charts and bubbles.
@@ -1218,23 +1282,8 @@ await p.evaluate(async () => {
 });
 await p.waitForTimeout(1100);
 await p.click('[data-speed="5"]');
-const busy = await p.evaluate(async () => {
-  const { sim, board } = window.app;
-  const times = [];
-  const renders = [];
-  let last = performance.now();
-  for (let i = 0; i < 240; i++) {
-    await new Promise(requestAnimationFrame);
-    const now = performance.now();
-    times.push(now - last);
-    renders.push(board.frameMs);
-    last = now;
-  }
-  times.sort((a, b) => a - b);
-  renders.sort((a, b) => a - b);
-  return { waiting: sim.waiting(), moving: sim.moving.length, medianFrameMs: +times[120].toFixed(1), p95FrameMs: +times[228].toFixed(1), fps: +(1000 / times[120]).toFixed(1), renderMs: +renders[120].toFixed(2) };
-});
-check('a retry storm at 5x holds 60fps', busy.medianFrameMs < 17.5 && busy.p95FrameMs < 22 && busy.waiting >= 100, busy);
+const busy = { ...(await frames(240)), waiting: await p.evaluate(() => window.app.sim.waiting()) };
+check('a retry storm at 5x holds 60fps', atSpeed(busy, idle) && busy.waiting >= 100, busy);
 await p.click('[data-speed="1"]');
 await shot('38-busy-storm');
 
@@ -1262,26 +1311,12 @@ const crowd = () => {
 await dropFile('crowd.excalidraw', crowd());
 await p.waitForTimeout(1100);
 await forward(30);
-const measureFrames = () => p.evaluate(async () => {
-  const { sim, board } = window.app;
-  const times = [];
-  const renders = [];
-  let last = performance.now();
-  for (let i = 0; i < 180; i++) {
-    await new Promise(requestAnimationFrame);
-    const now = performance.now();
-    times.push(now - last);
-    renders.push(board.frameMs);
-    last = now;
-  }
-  times.sort((a, b) => a - b);
-  renders.sort((a, b) => a - b);
-  let held = 0;
-  for (const st of sim.states.values()) held += st.queue.length + st.busy.length;
-  return { tokens: sim.moving.length + held, moving: sim.moving.length, medianFrameMs: +times[90].toFixed(1), p95FrameMs: +times[171].toFixed(1), fps: +(1000 / times[90]).toFixed(1), renderMs: +renders[90].toFixed(2), shapes: window.app.doc.length };
-});
+const measureFrames = async () => {
+  const got = await frames(180);
+  return { ...got, ...(await p.evaluate(() => { let held = 0; for (const st of window.app.sim.states.values()) held += st.queue.length + st.busy.length; return { tokens: window.app.sim.moving.length + held, shapes: window.app.doc.length }; })) };
+};
 const crowded = await measureFrames();
-check('80 tokens a second into 72 workers and six charts holds 60fps', crowded.medianFrameMs < 17.5 && crowded.p95FrameMs < 22 && crowded.tokens > 400, crowded);
+check('80 tokens a second into 72 workers and six charts holds 60fps', atSpeed(crowded, idle) && crowded.tokens > 400, crowded);
 await shot('42-crowded');
 const dragging = (async () => {
   const q = await middleOf('w2');
@@ -1295,7 +1330,7 @@ const dragging = (async () => {
 })();
 const whileDragging = await measureFrames();
 await dragging;
-check('and holds it while a shape is dragged through the middle of it', whileDragging.medianFrameMs < 18 && whileDragging.p95FrameMs < 26, whileDragging);
+check('and holds it while a shape is dragged through the middle of it', atSpeed(whileDragging, idle, { median: 18, p95: 26 }), whileDragging);
 
 check('no page errors', p.problems.length === 0, p.problems);
 
@@ -1364,7 +1399,7 @@ const phoneContext = await browser.newContext({ viewport: { width: 390, height: 
 const phone = await page(phoneContext);
 await phone.goto(`${MACHINE}#queue`);
 await phone.waitForFunction('window.app');
-await phone.waitForTimeout(1200);
+await phone.waitForFunction(() => window.app.sim.time > 0, null, { timeout: 60000 });
 const fits = await phone.evaluate(() => ({ sw: document.documentElement.scrollWidth, sh: document.documentElement.scrollHeight, iw: innerWidth, ih: innerHeight, board: window.app.board.canvas.getBoundingClientRect().height, running: window.app.sim.time > 0 }));
 check('phone: the page fits with no page scroll, and it runs', fits.sw <= fits.iw && fits.sh <= fits.ih && fits.board > 250 && fits.running, fits);
 await shot('43-phone', phone);

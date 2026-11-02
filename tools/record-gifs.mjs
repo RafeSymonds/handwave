@@ -158,6 +158,28 @@ async function deckTo(presenter, id) {
   while ((await presenter.evaluate(() => window.app.state.index)) < index) { await presenter.keyboard.press('ArrowRight'); await sleep(40); }
 }
 
+// Where a shape's blue arrow handle sits, and the middle of the first message on the drawing.
+const MACHINE_CIRCLE = (id) => {
+  const e = window.app.byId(id);
+  const w = e.width, h = e.height;
+  let c;
+  if (e.type === 'rectangle') c = [e.x + w + 13, e.y - 13];
+  else {
+    const k = e.type === 'ellipse' ? Math.SQRT1_2 : 0.5;
+    c = [e.x + w / 2 + (w / 2) * k + 13, e.y + h / 2 - (h / 2) * k - 13];
+  }
+  return window.app.toScreen(c[0], c[1]);
+};
+const MACHINE_BUBBLE = () => {
+  const b = window.app.m.bubbles[0];
+  return window.app.toScreen(b.x + b.w / 2, b.y + b.h / 2);
+};
+
+const machineText = (p, id) => p.evaluate((id) => {
+  const t = window.app.byId(id);
+  return window.app.toScreen(t.x + t.width / 2, t.y + t.height / 2);
+}, id);
+
 // ---------------------------------------------------------------- the scripts
 
 const GIFS = {
@@ -197,13 +219,14 @@ const GIFS = {
 
   async machine({ base, context }) {
     const p = await page(context);
-    await p.goto(`${base}/experiments/machine/`);
-    await p.waitForFunction('window.app');
-    const rec = new Recorder(p, 'machine');
+    await p.goto(`${base}/experiments/machine/#queue`);
+    await p.waitForFunction(() => window.app?.m?.demo === 'queue');
+    await sleep(400);
     await p.evaluate(() => window.app.fastForward(12));
+    const rec = new Recorder(p, 'machine');
     await rec.start();
     await sleep(3500);
-    const at = await p.evaluate(() => { const t = window.app.byId('workers-t'); return window.app.toScreen(t.x + t.width / 2, t.y + t.height / 2); });
+    const at = await machineText(p, 'workers-t');
     await glide(p, { x: at.x + 180, y: at.y + 200 }, at, 500);
     await sleep(200);
     await p.mouse.dblclick(at.x, at.y);
@@ -214,10 +237,87 @@ const GIFS = {
     await p.keyboard.type('takes 0.75s', { delay: 25 });
     await sleep(300);
     await p.keyboard.press('Enter');
-    await p.mouse.move(at.x + 120, at.y + 260);
+    await p.mouse.move(at.x + 120, at.y + 330);
     await sleep(11000);
     await rec.stop();
-    encode('machine', [rec], single());
+    encode('machine', [rec], single(1000));
+    await p.close();
+  },
+
+  // Start from nothing: parts, arrows, a misspelled word and its fix.
+  async 'machine-build'({ base, context }) {
+    const p = await page(context);
+    await p.goto(`${base}/experiments/machine/`);
+    await p.waitForSelector('#gallery [data-demo="blank"]');
+    await p.click('#gallery [data-demo="blank"]');
+    await sleep(300);
+    const rec = new Recorder(p, 'machine-build');
+    await rec.start();
+    await sleep(900);
+    const bo = await p.evaluate(() => { const r = window.app.board.canvas.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width, h: r.height }; });
+    const spot = (fx, fy) => ({ x: bo.l + bo.w * fx, y: bo.t + bo.h * fy });
+    const part = (name) => p.evaluate((name) => {
+      const e = window.app.tray.get(`part-work-${name}`);
+      const r = window.app.tray.canvas.getBoundingClientRect();
+      const v = window.app.tray.view;
+      return { x: r.left + ((e.x + e.width / 2) * v.scale + v.ox) / v.css, y: r.top + ((e.y + e.height / 2) * v.scale + v.oy) / v.css };
+    }, name);
+    for (const [name, at] of [['source', spot(0.14, 0.4)], ['workers', spot(0.5, 0.4)], ['end', spot(0.86, 0.4)]]) {
+      await dragTo(p, await part(name), at, 550);
+      await sleep(250);
+    }
+    const nodes = await p.evaluate(() => [...window.app.graph.nodes.values()].map((n) => n.id));
+    const middle = (id) => p.evaluate((id) => { const e = window.app.byId(id); return window.app.toScreen(e.x + e.width / 2, e.y + e.height / 2); }, id);
+    for (const [from, to] of [[nodes[0], nodes[1]], [nodes[1], nodes[2]]]) {
+      const start = await middle(from);
+      await glide(p, { x: start.x, y: start.y + 90 }, start, 250);
+      await sleep(150);
+      const circle = await p.evaluate(MACHINE_CIRCLE, from);
+      await p.mouse.move(circle.x, circle.y, { steps: 4 });
+      await sleep(120);
+      await dragTo(p, circle, await middle(to), 500);
+      await sleep(250);
+    }
+    await p.mouse.move(spot(0.5, 0.75).x, spot(0.5, 0.75).y);
+    await sleep(4000);
+    // A misspelled word gets a message on the drawing, and clicking it fixes it.
+    const label = await machineText(p, await p.evaluate((id) => window.app.doc.find((e) => e.type === 'text' && e.containerId === id)?.id ?? `${id}-t`, nodes[1]));
+    await glide(p, spot(0.5, 0.75), label, 400);
+    await p.mouse.dblclick(label.x, label.y);
+    await p.waitForFunction(() => window.app.editing);
+    await p.keyboard.press('ControlOrMeta+a');
+    await p.keyboard.type('workerz 2', { delay: 80 });
+    await sleep(250);
+    await p.keyboard.press('Enter');
+    await sleep(2200);
+    const bubble = await p.evaluate(MACHINE_BUBBLE);
+    await glide(p, label, bubble, 450);
+    await sleep(250);
+    await p.mouse.click(bubble.x, bubble.y);
+    await p.mouse.move(spot(0.5, 0.8).x, spot(0.5, 0.8).y);
+    await sleep(5000);
+    await rec.stop();
+    encode('machine-build', [rec], single(1000));
+    await p.close();
+  },
+
+  // The same drawing rules run a circuit, and the page shows all the demos.
+  async 'machine-logic'({ base, context }) {
+    const p = await page(context);
+    await p.goto(`${base}/experiments/machine/`);
+    await p.waitForSelector('#gallery .card canvas');
+    await sleep(1800);
+    await p.screenshot({ path: path.join(OUT, 'machine-gallery.png') });
+    console.log('machine-gallery.png');
+    await p.goto(`${base}/experiments/machine/#counter`);
+    await p.reload();
+    await p.waitForFunction(() => window.app?.m?.demo === 'counter');
+    const rec = new Recorder(p, 'machine-logic');
+    await sleep(300);
+    await rec.start();
+    await sleep(9000);
+    await rec.stop();
+    encode('machine-logic', [rec], single(1000));
     await p.close();
   },
 

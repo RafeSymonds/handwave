@@ -5,9 +5,10 @@ browser and moves them in response to input, where
 [excalive](https://github.com/RafeSymonds/excalive) renders them to slides and
 video.
 
-![A room votes from their phones and hand-drawn bars grow on the big screen](media/live-deck.gif)
+![Phones steer stick figures across a slide. They fall into a gap until the presenter draws a line, and they run over it to the flag](media/live-deck-race.gif)
 
-Every GIF here was recorded from the running page with scripted input.
+Every GIF here was recorded from the running page with scripted input. The phones in
+the live deck's GIFs are simulated, and its address is a stand-in.
 
     npm install
     npm start
@@ -16,15 +17,32 @@ Then open http://localhost:4173, which has a card for each experiment.
 
 ## Live deck
 
-A deck where the presenter can leave the script and the room takes part. Phones
-scan a QR code on the title slide, votes grow as bars while they arrive, and
-questions wait in a list only the presenter sees. Dropped phones reconnect and
-catch up on their own.
+A deck where the presenter can leave the script and the room takes part. Phones scan
+a QR code on the title slide, then each slide can give them something to do. Dropped
+phones reconnect and catch up on their own.
 
-Off script, you can drag anything and draw on anything. Esc morphs it all back to
-the script, and the audience sees every step:
+**The room votes**, and the bars grow as the votes arrive. Questions wait in a list
+only the presenter sees.
+
+![A room votes from their phones and hand-drawn bars grow on the big screen](media/live-deck.gif)
+
+**The room is the system.** Every phone is a worker that taps to finish jobs. Ask them
+to stop and the line backs up on the big screen, then takes longer to clear than it
+took to build.
+
+![Thirty workers keep up until they stop tapping, and the line and the chart climb](media/live-deck-workers.gif)
+
+**The slide is the level.** The GIF at the top of this page: each phone steers a stick
+figure, the slide's boxes are the ground, and your ink is new ground.
+
+**The presenter goes off script.** Drag anything and draw on anything. Esc morphs it
+all back to the script, and the audience sees every step.
 
 ![Dragging a box and drawing on a slide, then returning to the script](media/live-deck-offscript.gif)
+
+The room can also draw on a prompt, with only the drawings you approve reaching the
+shared wall, and a vote can pick which slides come next. A finished talk can be
+scrubbed through afterwards with its votes, ink and activities as they happened.
 
 - Presenter: http://localhost:4173/experiments/live-deck/
 - Big screen: add `?role=audience`. Phones use the code on the title slide.
@@ -33,12 +51,31 @@ the script, and the audience sees every step:
 
 ## Runnable diagrams
 
-The drawing is the program. Shapes and the arrows bound to them form a graph that
-runs, and the labels are its settings. Here, editing `workers 3` to `workers 1`
-makes the line back up. Drag an arrow's end to rewire it, or drop your own
-`.excalidraw` file on the page to run it.
+The drawing is the program. Shapes are parts, arrows join them, and labels say what
+they do, so editing `workers 3` to `workers 1` makes the line back up.
 
 ![A queue backing up after a label is edited from 3 workers to 1](media/machine.gif)
+
+The page says what is allowed. Drag parts on from the palette and pull arrows between
+them. Click any shape to see what the program thinks it is and which words it
+understood. A misspelled word gets a message on the drawing, and clicking it fixes the
+word. **What can I draw?** is a reference built from the table the parser reads.
+
+![Building a diagram from nothing, then fixing a misspelled word on the drawing](media/machine-build.gif)
+
+The same rules run flows of work, state machines, chance walks and logic circuits, and
+the kind is worked out from the words you use. Here a clock and four flip-flops count
+in binary:
+
+![A clock and four flip-flops counting in binary, with a timing chart](media/machine-logic.gif)
+
+The page opens on 14 demos, and each one makes a claim you can test by changing the
+drawing. **What if?** runs a drawing forward 40 times with different luck and draws
+every run. Save writes a plain `.excalidraw` file, and you can drop one on the page to
+run it. [`experiments/machine/README.md`](experiments/machine/README.md) lists every
+word.
+
+![A gallery of 14 runnable demos](media/machine-gallery.png)
 
 ## Platformer
 
@@ -130,9 +167,10 @@ These are experiments, and their tests can only prove so much:
 
 - **Real people.** Nobody has played the games, so their feel and difficulty are
   unknown. The tests only prove every level can be beaten.
-- **Real phones.** The live deck has only run on emulated phones on one machine,
-  not on iOS Safari or a real room's wifi. The QR code is decoded from the slide's
-  pixels in a test, not by a phone's camera.
+- **Real phones and rooms.** The live deck has only run on emulated and simulated
+  phones on one machine, not on iOS Safari or a real room's wifi, and its activities
+  were tuned on bots. The QR code is decoded from the slide's pixels in a test, not by
+  a phone's camera.
 - **Real sound.** Nobody has listened to the lesson, and the tutor's speech and
   microphone have not been tested with real audio.
 - **Real Excalidraw files.** The runnable diagrams have run a file from Excalidraw's

@@ -25,6 +25,12 @@ export function randomFrom(seed) {
 
 export const STEP = 1 / 60;
 
+function hashOf(words) {
+  let h = 2166136261;
+  for (let i = 0; i < words.length; i++) { h ^= words.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
 /** The right simulator for a graph, or null if there is nothing to run. */
 export function simFor(graph, seed = 1) {
   if (graph.mode === 'flow') return new FlowSim(graph, seed);
@@ -79,7 +85,6 @@ export class FlowSim {
   }
 
   reset(graph) {
-    this.random = randomFrom(this.seed);
     this.time = 0;
     this.moving = [];              // tokens on arrows
     this.states = new Map();
@@ -94,21 +99,28 @@ export class FlowSim {
     this.setGraph(graph);
   }
 
-  _fresh() {
-    return { kind: null, queue: [], busy: [], reserved: 0, inbound: 0, arrivals: [], rr: 0, done: 0, dropped: 0, wasted: 0, through: 0, rate: null, nextArrival: Infinity, pending: 0, nextPending: 0, burstAt: new Map(), dead: new Set(), lru: new Map(), recent: [], hits: 0, misses: 0, closed: new Set(), bucket: 1, series: [], marks: [], times: [] };
+  // Each shape draws its own random numbers, one sequence per job it does. With one
+  // sequence shared by everything, a change anywhere, or the same change a frame later,
+  // hands every later job a different number, and the whole future differs by chance. This
+  // way one worker fewer leaves the arrivals exactly as they were, so two runs differ only
+  // by what was actually changed.
+  _sequence(id, job) { return randomFrom(hashOf(`${this.seed}|${id}|${job}`)); }
+
+  _fresh(id) {
+    return { arrivals_: this._sequence(id, 'arrive'), work_: this._sequence(id, 'work'), route_: this._sequence(id, 'route'), kind: null, queue: [], busy: [], reserved: 0, inbound: 0, arrivals: [], rr: 0, done: 0, dropped: 0, wasted: 0, through: 0, rate: null, nextArrival: Infinity, pending: 0, nextPending: 0, burstAt: new Map(), dead: new Set(), lru: new Map(), recent: [], hits: 0, misses: 0, closed: new Set(), bucket: 1, series: [], marks: [], times: [] };
   }
 
   setGraph(graph) {
     this.graph = graph;
     for (const node of graph.nodes.values()) {
-      const st = this.states.get(node.id) ?? this._fresh();
+      const st = this.states.get(node.id) ?? this._fresh(node.id);
       this.states.set(node.id, st);
       const steady = !!node.params.steady;
       const rate = node.kind === 'source' ? (node.params.rate ?? null) : null;
       if (rate !== st.rate || steady !== st.steady) {
         st.rate = rate;
         st.steady = steady;
-        st.nextArrival = rate > 0 ? this.time + this._gap(rate, steady) : Infinity;
+        st.nextArrival = rate > 0 ? this.time + this._gap(rate, steady, st) : Infinity;
       }
       if (st.kind && st.kind !== node.kind) this._kindChanged(node, st);
       st.kind = node.kind;
@@ -133,7 +145,7 @@ export class FlowSim {
 
   state(id) { return this.states.get(id); }
 
-  _gap(rate, steady) { return steady ? 1 / rate : -Math.log(1 - this.random()) / rate; }
+  _gap(rate, steady, st) { return steady ? 1 / rate : -Math.log(1 - st.arrivals_()) / rate; }
 
   _release(token) {
     if (!token.reservedAt) return;
@@ -190,7 +202,7 @@ export class FlowSim {
     const guarded = out.filter((e) => e.when);
     if (guarded.length) {
       const scope = this._scope(token);
-      const first = guarded.find((e) => evaluate(e.when, scope, this.random));
+      const first = guarded.find((e) => evaluate(e.when, scope, st.route_));
       if (first) return first;
     }
     const open = guarded.length ? out.filter((e) => !e.when) : out;
@@ -201,7 +213,7 @@ export class FlowSim {
       const named = weighted.reduce((sum, e) => sum + e.percent, 0);
       const share = plain.length ? Math.max(0, 100 - named) / plain.length : 0;
       const total = named + share * plain.length || 1;
-      let r = this.random() * total;
+      let r = st.route_() * total;
       for (const e of open) {
         r -= e.percent ?? share;
         if (r <= 0) return e;
@@ -209,7 +221,7 @@ export class FlowSim {
       return open[open.length - 1];
     }
     const policy = node.params.policy;
-    if (policy === 'random') return open[Math.floor(this.random() * open.length)];
+    if (policy === 'random') return open[Math.floor(st.route_() * open.length)];
     if (policy === 'least busy') {
       let best = open[st.rr++ % open.length], load = this._load(best.to);
       for (const e of open) {
@@ -219,8 +231,8 @@ export class FlowSim {
       return best;
     }
     if (policy === 'two choices' && open.length > 1) {
-      const a = Math.floor(this.random() * open.length);
-      const b = (a + 1 + Math.floor(this.random() * (open.length - 1))) % open.length;
+      const a = Math.floor(st.route_() * open.length);
+      const b = (a + 1 + Math.floor(st.route_() * (open.length - 1))) % open.length;
       return this._load(open[a].to) <= this._load(open[b].to) ? open[a] : open[b];
     }
     return open[st.rr++ % open.length];
@@ -280,9 +292,9 @@ export class FlowSim {
     const used = new Set(st.busy.map((b) => b.slot));
     let slot = 0;
     while ((used.has(slot) || st.dead.has(slot)) && slot < count + st.busy.length + st.dead.size) slot++;
-    let total = takes * (0.7 + 0.6 * this.random());
+    let total = takes * (0.7 + 0.6 * st.work_());
     const slow = node.params.slow;
-    if (slow && this.random() * 100 < slow.share) total *= slow.factor;
+    if (slow && st.work_() * 100 < slow.share) total *= slow.factor;
     st.busy.push({ token, slot, left: Math.max(0.02, total - travelled), total });
   }
 
@@ -404,10 +416,10 @@ export class FlowSim {
 
   _cache(token, node, st) {
     let hit;
-    if (node.params.hitRate !== undefined) hit = this.random() * 100 < node.params.hitRate;
+    if (node.params.hitRate !== undefined) hit = st.route_() * 100 < node.params.hitRate;
     else {
       const size = node.params.cache ?? 0;
-      token.key ??= zipfPick(1000, this.random);
+      token.key ??= zipfPick(1000, st.route_);
       hit = st.lru.has(token.key);
       if (hit) st.lru.delete(token.key);
       st.lru.set(token.key, true);
@@ -449,8 +461,8 @@ export class FlowSim {
       if (node.kind !== 'source') continue;
       const st = this.states.get(node.id);
       for (let made = 0; st.nextArrival <= this.time; made++) {
-        st.nextArrival += this._gap(st.rate, st.steady);
-        if (made >= MAX_MADE_PER_STEP) { st.nextArrival = this.time + this._gap(st.rate, st.steady); break; }
+        st.nextArrival += this._gap(st.rate, st.steady, st);
+        if (made >= MAX_MADE_PER_STEP) { st.nextArrival = this.time + this._gap(st.rate, st.steady, st); break; }
         this._emit(node, st);
       }
       for (const burst of node.params.burst ?? []) {
@@ -521,7 +533,7 @@ export class FlowSim {
         let edge = null;
         const token = this._peek(node, st);
         const guarded = out.some((e) => e.when);
-        const allowed = guarded ? out.filter((e) => (e.when ? evaluate(e.when, this._scope(token), this.random) : true)) : out;
+        const allowed = guarded ? out.filter((e) => (e.when ? evaluate(e.when, this._scope(token), st.route_) : true)) : out;
         for (let i = 0; i < allowed.length; i++) {
           const candidate = allowed[(st.rr + i) % allowed.length];
           const target = nodes.get(candidate.to);
@@ -570,13 +582,13 @@ export class FlowSim {
     const mix = node.params.mix ?? [];
     let kind = null;
     if (mix.length) {
-      let r = this.random() * 100;
+      let r = st.arrivals_() * 100;
       for (const m of mix) {
         r -= m.share;
         if (r < 0) { kind = m.kind; break; }
       }
     }
-    const key = node.params.keys ? zipfPick(node.params.keys, this.random) : null;
+    const key = node.params.keys ? zipfPick(node.params.keys, st.arrivals_) : null;
     const token = this._newToken(null, { kind, key });
     if (this.moving.length + this.waiting() >= MAX_TOKENS) { this._drop(token, node, st); return; }
     this._send(token, node, st);
@@ -719,9 +731,12 @@ export class FlowSim {
     const latest = h[h.length - 1];
     const goodRate = span > 0 ? (latest.finished - past.finished) / span : 0;
     const wasteRate = span > 0 ? (latest.wasted - past.wasted) / span : 0;
+    // A long line that isn't moving either way is not keeping up, whatever the last few
+    // seconds of arrivals looked like.
     const verdict = wasteRate > 0.2 && wasteRate > goodRate ? 'wasting' : this.drops.length ? 'turning away'
       : (waiting >= 8 && slope > 0.2) || (overloaded && waiting >= 3) ? 'backing up'
-        : waiting >= 8 && slope < -0.2 ? 'draining' : 'keeping up';
+        : waiting >= 8 && slope < -0.2 ? 'draining'
+          : waiting >= 8 ? 'holding' : 'keeping up';
     const sinks = [...this.graph.nodes.values()].filter((n) => n.kind === 'sink').map((n) => ({ id: n.id, name: n.name, done: this.states.get(n.id).done }));
     const list = [...this.durations].sort((a, b2) => a - b2);
     const average = list.length ? list.reduce((a, b2) => a + b2, 0) / list.length : 0;

@@ -38,6 +38,7 @@ const m = {
   hover: null,
   hoverArrow: null,
   running: true,
+  clockHeld: false,
   speed: 1,
   version: 0,
   past: [],
@@ -299,7 +300,7 @@ function tick(dt) {
   if (!m.sim || board.time < startAt || m.galleryOpen) return;
   const sim = m.sim;
   const before = sim.mode === 'states' ? sim.current : null;
-  if (m.running) {
+  if (m.running && !m.clockHeld) {
     clock += dt * m.speed;
     let guard = 0;
     while (clock >= STEP && guard++ < 40) {
@@ -340,6 +341,12 @@ function fastForward(seconds) {
   panelView.refresh();
   ui.live();
 }
+
+/**
+ * Stop the page's own clock, so only fastForward moves the program. For tests: otherwise
+ * how far it runs between two fastForward calls depends on how busy the machine is.
+ */
+function holdClock(on) { m.clockHeld = on; clock = 0; }
 
 function setRunning(on) {
   m.running = on;
@@ -998,7 +1005,7 @@ else {
 }
 
 window.app = {
-  board, panel, tray, toScreen, loadDemo, loadBlank, restart, fastForward, fire, ui, m,
+  board, panel, tray, toScreen, loadDemo, loadBlank, restart, fastForward, holdClock, fire, ui, m,
   undo, redo, stepOnce, setRunning, setSpeed, saveFile, runFile, select, readLabel, frameMs: () => board.frameMs,
   get doc() { return m.doc; },
   get graph() { return m.graph; },

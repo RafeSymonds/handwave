@@ -97,6 +97,10 @@ machine `chart tries` charts a variable. Other text is a note and does nothing.
 
 ## What if
 
+Every run is repeatable: a drawing and a seed give the same result. Each shape draws its
+own random numbers, one sequence per job it does, so one worker fewer leaves the arrivals
+as they were, and two runs differ only by what was changed.
+
 **What if?** runs the drawing forward 40 times with different seeds in a worker and draws
 every run. **Compare**, beside any number in the inspector, runs it at a range of values
 and shows the spread at each. Click a column to use that value. Both give the same answer

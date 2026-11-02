@@ -25,6 +25,7 @@ export function createPanel(m) {
       if (b && b.demand > b.capacity) return { words: `Backing up: ${arriving}, but ${finishing}.`, tone: color.rose };
       return { words: `Backing up: the line is growing by ${round(Math.max(0, s.slope))} a second.`, tone: color.rose };
     }
+    if (s.verdict === 'holding') return { words: `A line of ${s.waiting} is not getting any shorter.`, tone: color.amber };
     if (s.verdict === 'draining') return { words: b ? `Draining the line: ${arriving}, and ${finishing}.` : 'Draining the line.', tone: color.amber };
     return { words: b ? `Keeping up: ${arriving}, and ${finishing}.` : `Keeping up: ${s.finished} finished.`, tone: color.green };
   }

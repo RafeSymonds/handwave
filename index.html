@@ -1,0 +1,51 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>handwave</title>
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script type="importmap">
+{"imports": {
+  "roughjs": "/node_modules/roughjs/bundled/rough.esm.js",
+  "perfect-freehand": "/node_modules/perfect-freehand/dist/esm/index.mjs"
+}}
+</script>
+<link rel="stylesheet" href="/lib/page.css">
+<canvas id="stage"></canvas>
+<script type="module">
+// The front page is itself a handwave scene: each card is a box you click.
+import { createStage } from '/lib/stage.js';
+import { rect, text, color } from '/lib/draw.js';
+
+const CARDS = [
+  { id: 'explorable', title: 'Explorable', note: 'Drag the target and watch\nevery check of a search change.', tone: color.blue },
+  { id: 'machine', title: 'Runnable diagrams', note: 'The drawing is the program.\nRewire it and it behaves differently.', tone: color.green },
+  { id: 'lesson', title: 'Branching lesson', note: 'A voice asks, you click the drawing,\nand it answers what you chose.', tone: color.amber },
+  { id: 'live-deck', title: 'Live deck', note: 'Go off script mid-talk.\nThe audience votes from their phones.', tone: color.rose },
+  { id: 'tutor', title: 'Whiteboard tutor', note: 'Ask anything and an agent\ndraws and explains the answer.', tone: color.gray },
+  { id: 'game-ink', title: 'Game: ink', note: 'Whatever you draw becomes solid.\nGet the ball to the flag.', tone: color.blue },
+  { id: 'game-platformer', title: 'Game: platformer', note: 'Every level is an Excalidraw file.\nDraw your own and drop it in.', tone: color.green },
+];
+
+const stage = await createStage(document.getElementById('stage'), { width: 1600, height: 900 });
+const built = new Set(await (await fetch('/experiments.json')).json());
+const available = CARDS.map((c) => built.has(c.id));
+
+const W = 480, H = 200, GAP = 30, LEFT = 60, TOP = 190;
+const elements = [
+  text('title', 60, 36, 'handwave', { size: 72, font: 6 }),
+  text('subtitle', 62, 124, 'Hand-drawn things you can poke.', { size: 32, color: color.muted, customData: { handwave: { ghost: true } } }),
+];
+CARDS.forEach((card, i) => {
+  const x = LEFT + (i % 3) * (W + GAP);
+  const y = TOP + Math.floor(i / 3) * (H + GAP);
+  const on = available[i];
+  const opacity = on ? 100 : 35;
+  const ghost = { customData: { handwave: { ghost: true } } };
+  elements.push(rect(card.id, x, y, W, H, { tone: on ? card.tone : color.gray, opacity, customData: { handwave: { cursor: on ? 'pointer' : 'default' } } }));
+  elements.push(text(`${card.id}-title`, x + 28, y + 26, card.title, { size: 38, color: on ? card.tone.stroke : color.muted, opacity, ...ghost }));
+  elements.push(text(`${card.id}-note`, x + 28, y + 92, on ? card.note : 'not built yet', { size: 26, color: color.ink, opacity, ...ghost }));
+  if (on) stage.on('click', card.id, () => { location.href = `/experiments/${card.id}/`; });
+});
+stage.show(elements, { stagger: 0.012 });
+window.app = { stage };
+</script>

@@ -1,0 +1,66 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>handwave: bench and fidelity</title>
+<link rel="icon" href="data:,">
+<script type="importmap">
+{"imports": {
+  "roughjs": "/node_modules/roughjs/bundled/rough.esm.js",
+  "perfect-freehand": "/node_modules/perfect-freehand/dist/esm/index.mjs"
+}}
+</script>
+<link rel="stylesheet" href="/lib/page.css">
+<canvas id="stage"></canvas>
+<script type="module">
+import { createStage } from '/lib/stage.js';
+import { rect, ellipse, diamond, arrow, text, loadScene, color } from '/lib/draw.js';
+import { passesFor, shapeCacheSize } from '/lib/render.js';
+
+const canvas = document.getElementById('stage');
+const q = new URLSearchParams(location.search);
+const scene = q.get('scene');
+
+if (scene) {
+  const stage = await createStage(canvas, { width: +(q.get('w') ?? 1600), height: +(q.get('h') ?? 900), autoplay: false });
+  const { elements, files } = await loadScene(scene);
+  stage.files = files;
+  const at = q.get('at');
+  stage.show(elements, { instant: at === null });
+  stage.advance(at === null ? 0 : +at);
+  stage.render();
+  window.ready = true;
+} else {
+  const stage = await createStage(canvas, { autoplay: false });
+  // Every mode measures only stage.render(), the real cost of one frame.
+  window.bench = async (n, mode) => {
+    const tones = [color.blue, color.amber, color.green, color.rose, color.gray];
+    const make = (i, t) => {
+      const x = 20 + (i * 83) % 1500 + (mode === 'still' ? 0 : Math.sin(t + i) * 30);
+      const y = 20 + (i * 137) % 820 + (mode === 'still' ? 0 : Math.cos(t + i) * 30);
+      const tone = tones[i % 5];
+      const grow = mode === 'resize' ? Math.sin(t + i) * 12 : 0;
+      const hatch = mode === 'hatch' ? { fillStyle: 'hachure' } : {};
+      const k = i % 3;
+      if (k === 0) return rect(`r${i}`, x, y, 70 + grow, 50, { tone, ...hatch });
+      if (k === 1) return ellipse(`e${i}`, x, y, 60 + grow, 50, { tone, ...hatch });
+      return diamond(`d${i}`, x, y, 70 + grow, 60, { tone, ...hatch });
+    };
+    const frame = (t) => Array.from({ length: n }, (_, i) => make(i, t));
+    stage.show(frame(0), { instant: true });
+    const started = performance.now();
+    stage.render();
+    const firstMs = performance.now() - started;
+    const times = [];
+    for (let f = 1; f <= 90; f++) {
+      const els = frame(f / 30);
+      const t0 = performance.now();
+      stage.show(els, { instant: true });
+      stage.render();
+      await new Promise(requestAnimationFrame);
+      times.push(performance.now() - t0);
+    }
+    times.sort((a, b) => a - b);
+    return { n, mode, firstMs: +firstMs.toFixed(1), medianMs: +times[45].toFixed(2), p95Ms: +times[85].toFixed(2), cache: shapeCacheSize() };
+  };
+  window.ready = true;
+}
+</script>

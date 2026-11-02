@@ -1,0 +1,20 @@
+{
+  "name": "handwave",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Hand-drawn things you can poke: explorables, runnable diagrams, branching lessons, live decks, a whiteboard tutor and games.",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node tests/explorable.mjs && node tests/front.mjs"
+  },
+  "dependencies": {
+    "matter-js": "^0.20.0",
+    "perfect-freehand": "^1.2.3",
+    "roughjs": "^4.6.6",
+    "ws": "^8.22.1"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.1"
+  }
+}

@@ -8,12 +8,12 @@ import assert from 'assert';
 import fs from 'fs';
 import http from 'http';
 import os from 'os';
-import { open, page } from './browser.mjs';
+import { open, page, shots } from './browser.mjs';
 import { startServer } from '../server.mjs';
 import { refusal } from '../experiments/tutor/server.mjs';
 import { Board, Lines, parseLine } from '../experiments/tutor/ops.mjs';
 
-const OUT = '/private/tmp/claude-501/-Users-rafe-other-excalive/c79f7f54-47d9-4ff5-9a29-e4e52e3db8eb/scratchpad/tutor';
+const OUT = shots('tutor');
 fs.mkdirSync(OUT, { recursive: true });
 const argv = process.argv.slice(2);
 const LIVE = argv.includes('--live');

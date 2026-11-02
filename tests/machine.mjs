@@ -2,9 +2,9 @@
 // node tests/machine.mjs [screenshot dir]
 import fs from 'fs';
 import assert from 'assert/strict';
-import { open, page } from './browser.mjs';
+import { open, page, shots } from './browser.mjs';
 
-const out = process.argv[2] ?? '/private/tmp/claude-501/-Users-rafe-other-excalive/c79f7f54-47d9-4ff5-9a29-e4e52e3db8eb/scratchpad/machine';
+const out = process.argv[2] ?? shots('machine');
 fs.mkdirSync(out, { recursive: true });
 const { base, context, close } = await open();
 const p = await page(context);

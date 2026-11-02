@@ -7,10 +7,20 @@
 // crossed a dying connection counts exactly once on both sides.
 
 import os from 'os';
+import qrcode from 'qrcode-generator';
 import { SLIDES, slideById, voteOpen } from './meta.js';
 import { apply, cleanPresenterOp, newState } from './room.js';
 
 const MAX_MESSAGE = 64 * 1024;
+
+// A QR code as rows of '0' and '1'. Level Q leaves room for the hand-drawn edges.
+function qrRows(text) {
+  const code = qrcode(0, 'Q');
+  code.addData(text);
+  code.make();
+  const n = code.getModuleCount();
+  return Array.from({ length: n }, (_, r) => Array.from({ length: n }, (_, c) => (code.isDark(r, c) ? '1' : '0')).join(''));
+}
 const MAX_ROOMS = 50, MAX_CLIENTS = 1000, MAX_QUESTIONS = 200, MAX_QUESTION_LENGTH = 140;
 const ASK_GAP_MS = 3000;
 const SILENT_MS = 90000;   // A hidden tab's timers can slow to once a minute.
@@ -130,7 +140,9 @@ export default ({ route, sockets }) => {
     // Bound to loopback, the server cannot be reached from a phone at any address.
     const bound = req.socket.server?.address()?.address;
     const reachable = Boolean(lan) && bound !== '127.0.0.1' && bound !== '::1';
-    const body = { lan, port, reachable, joinUrl: `http://${lan ?? 'localhost'}:${port}/join${query}`, canPresent: isThisMachine(req.socket.remoteAddress) };
+    const joinUrl = `http://${lan ?? 'localhost'}:${port}/join${query}`;
+    // No code on a server phones cannot reach, because scanning it could only fail.
+    const body = { lan, port, reachable, joinUrl, qr: reachable ? qrRows(joinUrl) : null, canPresent: isThisMachine(req.socket.remoteAddress) };
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(body));
   });

@@ -3,9 +3,9 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { open, page } from './browser.mjs';
+import { open, page, shots } from './browser.mjs';
 
-const OUT = process.env.OUT ?? '/private/tmp/claude-501/-Users-rafe-other-excalive/c79f7f54-47d9-4ff5-9a29-e4e52e3db8eb/scratchpad/game-platformer';
+const OUT = process.env.OUT ?? shots('game-platformer');
 fs.mkdirSync(OUT, { recursive: true });
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'experiments', 'game-platformer');
 

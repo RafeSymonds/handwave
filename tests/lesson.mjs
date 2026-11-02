@@ -4,9 +4,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
-import { open, page } from './browser.mjs';
+import { open, page, shots } from './browser.mjs';
 
-const OUT = process.argv[2] ?? '/private/tmp/claude-501/-Users-rafe-other-excalive/c79f7f54-47d9-4ff5-9a29-e4e52e3db8eb/scratchpad/lesson';
+const OUT = process.argv[2] ?? shots('lesson');
 const FAST = 8;
 const { base, context, browser, close } = await open();
 const results = [];

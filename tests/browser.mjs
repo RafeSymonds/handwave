@@ -1,4 +1,7 @@
 // A real browser and a server on a free port, for tests and benchmarks.
+import { mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { startServer } from '../server.mjs';
 
@@ -19,4 +22,11 @@ export async function page(context) {
   p.on('requestfailed', (r) => p.problems.push(`failed: ${r.url()}`));
   p.on('response', (r) => { if (r.status() >= 400) p.problems.push(`${r.status()}: ${r.url()}`); });
   return p;
+}
+
+/** A folder for one test's screenshots. SHOTS overrides where they go. */
+export function shots(name) {
+  const dir = join(process.env.SHOTS ?? join(tmpdir(), 'handwave'), name);
+  mkdirSync(dir, { recursive: true });
+  return dir;
 }

@@ -2,6 +2,7 @@
 // stable ids, so moving between steps morphs what stays and draws what is new.
 // scene() then lays the off-script layer on top: offsets, ink and any question.
 
+import { qrElement } from './qr.js';
 import { arrow, box, color, diamond, ellipse, line, rect, text } from '/lib/draw.js';
 import { measure } from '/lib/stage.js';
 import { SLIDES } from './meta.js';
@@ -45,12 +46,14 @@ const VIEWS = {
     return [
       text('title-title', 80, 150, slide.title, { size: 84, font: 6 }),
       text('title-sub', 84, 268, 'Hand-drawn, live, and your phone is part of it.', { size: 40, color: color.muted }),
-      rect('join', 80, 400, 1130, 250, { tone: color.amber }),
-      text('join-label', 124, 428, 'Open this on your phone', { size: 40, color: color.amber.stroke, customData: { live: { with: 'join' } } }),
-      text('join-url', 124, 500, info.joinUrl, { size: 52, font: 3, color: color.ink, customData: { live: { with: 'join' }, handwave: { seconds: 0.5 } } }),
+      // With a code to scan, the card makes room for it and the address fits what is left.
+      rect('join', 80, 400, info.qr ? 990 : 1130, 250, { tone: color.amber }),
+      text('join-label', 124, 428, info.qr ? 'Scan this, or open the address' : 'Open this on your phone', { size: 40, color: color.amber.stroke, customData: { live: { with: 'join' } } }),
+      text('join-url', 124, 500, info.joinUrl, { size: info.qr ? Math.min(46, 900 / (info.joinUrl.length * 0.6)) : 52, font: 3, color: color.ink, customData: { live: { with: 'join' }, handwave: { seconds: 0.5 } } }),
       info.reachable
         ? text('join-note', 124, 582, 'Same wifi as this laptop.', { size: 28, color: color.muted, customData: { live: { with: 'join' } } })
         : text('join-note', 124, 582, 'Phones cannot reach this yet. Restart with: HOST=0.0.0.0 npm start', { size: 28, color: color.rose.stroke, customData: { live: { with: 'join' } } }),
+      ...(info.qr ? [qrElement('join-qr', 1100, 262, 460)] : []),
       text('join-count', 84, 700, `${phones} ${phones === 1 ? 'phone' : 'phones'} connected`, { size: 44, color: phones ? color.green.stroke : color.muted }),
     ];
   },
@@ -157,7 +160,10 @@ function votingSlide(afterClose, { rowHeight = 125 } = {}) {
       out.push(text(`${owner}-count`, X + width + 18, y + BAR / 2, String(counts[i]), { size: 44, valign: 'middle', color: tone.stroke, customData: { live: { with: owner }, handwave: { enter: 'fade' } } }));
     });
     if (closed) out.push(...afterClose(slide));
-    else out.push(text(`${slide.id}-join`, 80, 800, `Vote on your phone: ${info.joinUrl}`, { size: 32, color: color.muted }));
+    else {
+      out.push(text(`${slide.id}-join`, 80, 800, `Vote on your phone: ${info.joinUrl}`, { size: 32, color: color.muted }));
+      if (info.qr) out.push(qrElement(`${slide.id}-qr`, 1340, 670, 220));
+    }
     return out;
   };
 }

@@ -5,13 +5,15 @@
 
 import net from 'net';
 import os from 'os';
+import { fileURLToPath } from 'url';
 import WebSocket from 'ws';
-import { open, page } from './browser.mjs';
+import { open, page, shots } from './browser.mjs';
 import { startServer } from '../server.mjs';
 import { isThisMachine, lanAddress } from '../experiments/live-deck/server.mjs';
 import { cleanPresenterOp, newState } from '../experiments/live-deck/room.js';
+import { SLIDES } from '../experiments/live-deck/meta.js';
 
-const SHOTS = process.argv[2] ?? '/private/tmp/claude-501/-Users-rafe-other-excalive/c79f7f54-47d9-4ff5-9a29-e4e52e3db8eb/scratchpad/live-deck';
+const SHOTS = process.argv[2] ?? shots('live-deck');
 const PATH = '/experiments/live-deck/';
 let failures = 0, passes = 0;
 
@@ -135,6 +137,7 @@ ok('the join address uses a real address of this machine', info.lan === null || 
 ok('the title slide shows the join address', (await pres.evaluate(() => window.app.stage.get('join-url').text)) === info.joinUrl);
 ok('on a loopback server the slide says phones cannot reach it and how to fix it', (await pres.evaluate(() => window.app.stage.get('join-note').text)).includes('HOST=0.0.0.0'));
 ok('so does the presenter panel', (await pres.textContent('#p-status')).includes('HOST=0.0.0.0'));
+ok('a server phones cannot reach shows no code to scan', (await pres.evaluate(() => window.app.stage.get('join-qr'))) === undefined);
 
 const phones = [];
 for (let i = 0; i < 5; i++) {
@@ -514,11 +517,41 @@ if (lan) {
   const lanPres = await openScreen(lanPresContext, lanBase + PATH);
   ok('the laptop presents over its own address', (await lanPres.evaluate(() => window.app.role)) === 'presenter');
   ok('and the slide drops the warning', (await lanPres.evaluate(() => window.app.stage.get('join-note').text)) === 'Same wifi as this laptop.');
+
+  // Read the code from the pixels on the slide, as a camera would.
+  await lanPres.addScriptTag({ path: fileURLToPath(new URL('../node_modules/jsqr/dist/jsQR.js', import.meta.url)) });
+  const scan = (options = {}) => lanPres.evaluate(({ scale = 1, blur = 0, angle = 0 }) => {
+    const src = document.getElementById('stage');
+    const w = Math.round(src.width * scale), h = Math.round(src.height * scale);
+    const canvas = Object.assign(document.createElement('canvas'), { width: w, height: h });
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.filter = blur ? `blur(${blur}px)` : 'none';
+    ctx.translate(w / 2, h / 2);
+    ctx.rotate(angle);
+    ctx.translate(-w / 2, -h / 2);
+    ctx.drawImage(src, 0, 0, w, h);
+    return window.jsQR(ctx.getImageData(0, 0, w, h).data, w, h)?.data ?? null;
+  }, options);
+  await lanPres.waitForTimeout(500);
+  await lanPres.screenshot({ path: `${SHOTS}/qr-title.png` });
+  const scanned = await scan();
+  ok('the code on the title slide scans to the join address', scanned === lanInfo.joinUrl, scanned);
+  ok('it still scans small, blurred and tilted', (await scan({ scale: 0.5, blur: 1, angle: 0.12 })) === lanInfo.joinUrl);
+  const voteAt = SLIDES.findIndex((slide) => slide.vote);
+  await goTo(lanPres, voteAt, 0);
+  await lanPres.waitForTimeout(500);
+  await lanPres.screenshot({ path: `${SHOTS}/qr-vote.png` });
+  ok('the code on a vote slide scans too', (await scan()) === lanInfo.joinUrl);
+  await goTo(lanPres, 0, 0);
+  await lanPres.waitForTimeout(300);
+
   const lanPhoneContext = await phoneContext();
   const lanPhone = track(await page(lanPhoneContext));
-  await lanPhone.goto(lanInfo.joinUrl);
+  await lanPhone.goto(scanned);
   await lanPhone.waitForFunction(() => window.app && window.app.state);
-  await until(lanPres, () => window.app.stage.get('join-count')?.text === '1 phone connected', undefined, 'a phone joins through the address on the slide');
+  await until(lanPres, () => window.app.stage.get('join-count')?.text === '1 phone connected', undefined, 'a phone joins through the scanned code');
   ok('the token works without https', (await lanPhone.evaluate(() => window.isSecureContext)) === false && (await lanPhone.evaluate(() => window.app.link.client.length)) > 8);
   await lanPresContext.close();
   await lanPhoneContext.close();

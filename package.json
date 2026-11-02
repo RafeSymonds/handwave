@@ -6,15 +6,17 @@
   "description": "Hand-drawn things you can poke: explorables, runnable diagrams, branching lessons, live decks, a whiteboard tutor and games.",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node tests/explorable.mjs && node tests/front.mjs"
+    "test": "node tests/explorable.mjs && node tests/front.mjs && node tests/machine.mjs && node tests/live-deck.mjs && node tests/tutor.mjs && node tests/game-ink.mjs && node tests/game-platformer.mjs && node tests/lesson.mjs"
   },
   "dependencies": {
     "matter-js": "^0.20.0",
     "perfect-freehand": "^1.2.3",
+    "qrcode-generator": "^2.0.4",
     "roughjs": "^4.6.6",
     "ws": "^8.22.1"
   },
   "devDependencies": {
+    "jsqr": "^1.4.0",
     "playwright": "^1.64.1"
   }
 }

@@ -1,6 +1,7 @@
 // The presenter and the audience screen. They draw the same scene from the same
 // state. Only the presenter has input and a panel.
 
+import { QR_FILE, qrDataUrl } from './qr.js';
 import { createStage } from '/lib/stage.js';
 import { randomToken, Link } from './link.js';
 import { scene, ownerOf } from './deck.js';
@@ -16,6 +17,7 @@ export async function startScreen({ role, room, info }) {
   panel.hidden = !presenting;
   const canvas = document.getElementById('stage');
   const stage = await createStage(canvas, { width: 1600, height: 900 });
+  if (info.qr) stage.files[QR_FILE] = { dataURL: qrDataUrl(info.qr) };
 
   let state = null;
   let drawn = false;

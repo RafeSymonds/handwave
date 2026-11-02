@@ -13,7 +13,8 @@ export function randomToken() {
 function deviceId() {
   try {
     let id = localStorage.getItem('handwave.live-deck.client');
-    if (!id) { id = randomToken(); localStorage.setItem('handwave.live-deck.client', id); }
+    // The server refuses an id it cannot read, and a stored one would be refused forever.
+    if (!/^[a-zA-Z0-9-]{8,64}$/.test(id ?? '')) { id = randomToken(); localStorage.setItem('handwave.live-deck.client', id); }
     return id;
   } catch {
     return randomToken();

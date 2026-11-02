@@ -174,8 +174,9 @@ These are experiments, and their tests can only prove so much:
 - **Real sound.** Nobody has listened to the lesson, and the tutor's speech and
   microphone have not been tested with real audio.
 - **Real Excalidraw files.** The runnable diagrams have run a file from Excalidraw's
-  own converter, and the platformer's levels open in Excalidraw's renderer, but no
-  file drawn by hand on excalidraw.com has been tried.
+  own converter. In a one-off check, excalidraw.com kept every element and arrow
+  binding of their saved files. The platformer's levels open in Excalidraw's renderer.
+  No file drawn by hand on excalidraw.com has been run here.
 
 ## Layout
 

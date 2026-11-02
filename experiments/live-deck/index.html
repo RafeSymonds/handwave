@@ -60,4 +60,15 @@
   <p id="ask-status" aria-live="polite"></p>
 </form>
 
+<div id="problem" role="alert" hidden><strong></strong><p></p></div>
+<script>
+  // If the deck's own code never runs, there is nothing else left to say so.
+  setTimeout(() => {
+    if (window.app || !document.getElementById('problem').hidden) return;
+    const box = document.getElementById('problem');
+    box.querySelector('strong').textContent = 'The deck did not start.';
+    box.querySelector('p').textContent = 'Reload the page. If this keeps happening, try a newer browser.';
+    box.hidden = false;
+  }, 8000);
+</script>
 <script type="module" src="./main.js"></script>

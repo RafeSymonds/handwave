@@ -1654,6 +1654,65 @@ if (want('replay')) {
 }
 
 
+console.log('--- a page that cannot connect says why');
+{
+  const words = (p) => p.evaluate(() => { const b = document.getElementById('problem'); return b.hidden ? null : b.innerText; });
+  const shown = () => !document.getElementById('problem').hidden;
+  const size = (label) => (label === 'phone' ? { width: 390, height: 844 } : { width: 1600, height: 900 });
+  const socket = /live-deck\/ws/;
+
+  for (const [label, query] of [['presenter', '?'], ['audience', '?role=audience&'], ['phone', '?role=phone&']]) {
+    const ctx = await browser.newContext({ viewport: size(label) });
+    let allowed = false;
+    await ctx.routeWebSocket(socket, (ws) => { if (allowed) ws.connectToServer(); else ws.close(); });
+    const p = await page(ctx);
+    await p.goto(`${base}${PATH}${query}room=t-noconn`);
+    await until(p, shown, undefined, `${label}: a failed connection puts a message on the page`);
+    ok(`${label}: it says where the page came from`, (await words(p)).includes(new URL(base).host), await words(p));
+    await p.screenshot({ path: `${SHOTS}/no-connection-${label}.png` });
+    allowed = true;
+    await until(p, () => window.app?.state && document.getElementById('problem').hidden, undefined, `${label}: when the connection returns, the message leaves and the deck appears`, 12000);
+    ok(`${label}: and the slide is drawn`, (await p.evaluate(() => window.app.stage.elements().length)) > 0);
+    await ctx.close();
+  }
+
+  {
+    const ctx = await browser.newContext({ viewport: size('audience') });
+    await ctx.routeWebSocket(socket, () => {});
+    const p = await page(ctx);
+    await p.goto(`${base}${PATH}?role=audience&room=t-noconn`);
+    await until(p, shown, undefined, 'a connection that hangs without failing gets a message too', 7000);
+    ok('it says it is still trying', /Still trying/.test(await words(p)), await words(p));
+    await ctx.close();
+  }
+  {
+    const ctx = await browser.newContext({ viewport: size('audience') });
+    await ctx.routeWebSocket(socket, (ws) => ws.close({ code: 4004, reason: 'refused' }));
+    const p = await page(ctx);
+    await p.goto(`${base}${PATH}?role=audience&room=t-noconn`);
+    await until(p, shown, undefined, 'a refused connection gets a message');
+    ok('it says it was refused', /refused/.test(await words(p)), await words(p));
+    await ctx.close();
+  }
+  {
+    const ctx = await browser.newContext({ viewport: size('audience') });
+    await ctx.route('**/live-deck/info*', (r) => r.fulfill({ status: 404, body: 'not found' }));
+    const p = await page(ctx);
+    await p.goto(`${base}${PATH}?role=audience&room=t-noconn`);
+    await until(p, shown, undefined, 'a server without this backend gets a message');
+    ok('it says how to fix it', /npm start/.test(await words(p)), await words(p));
+    await ctx.close();
+  }
+  {
+    const ctx = await browser.newContext({ viewport: size('audience') });
+    await ctx.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('handwave.live-deck.client', 'bad id'); } });
+    const p = await page(ctx);
+    await p.goto(`${base}${PATH}?role=audience&room=t-noconn`);
+    await until(p, () => window.app?.state, undefined, 'a stored id the server would refuse is replaced, so the page still connects');
+    await ctx.close();
+  }
+}
+
 // Every page, for errors. A browser logs each failed reconnect, which is expected here.
 const problems = everyPage.flatMap((p) => p.problems).filter((m) => !/WebSocket connection to/.test(m));
 ok('no page had an error', problems.length === 0, problems.slice(0, 5));

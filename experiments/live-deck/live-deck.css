@@ -91,3 +91,13 @@ body.phone canvas#stage { flex: 1 1 0; width: 100vw; height: 0; min-height: 0; }
   border: 2px solid #1864ab; border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
 }
 #ask-status { min-height: 1.3em; margin: 4px 0 0; font-size: 16px; color: #7A776E; }
+
+/* The page has nothing to show and says why. */
+#problem {
+  position: fixed; left: 50%; top: 32%; transform: translateX(-50%); z-index: 50; box-sizing: border-box;
+  width: min(90vw, 620px); padding: 20px 24px; border: 2px solid #c92a2a; border-radius: 14px;
+  background: #ffe3e3; color: #1B2547; font: 21px/1.35 Excalifont, sans-serif;
+}
+#problem[hidden] { display: none; }
+#problem strong { display: block; margin-bottom: 8px; font-weight: normal; font-size: 27px; color: #c92a2a; }
+#problem p { margin: 0; }

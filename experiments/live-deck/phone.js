@@ -2,6 +2,7 @@
 // phone's own keyboard is the only good way to type. A slide with an activity hands
 // the whole page to that activity's controller, from views.js.
 
+import { connectionNotice } from './notice.js';
 import { createStage, hits } from '/lib/stage.js';
 import { box, color, rect, text } from '/lib/draw.js';
 import { Link } from './link.js';
@@ -142,7 +143,8 @@ export async function startPhone({ role, room, info }) {
         if (ack.result === 'too soon') input.value = op.text;
       }
     },
-    onStatus() {
+    onStatus(status) {
+      connectionNotice(status, Boolean(state));
       draw();
       if (link.status === 'live' && statusLine.textContent === waitingWords) statusLine.textContent = 'Reconnected. Sending…';
     },

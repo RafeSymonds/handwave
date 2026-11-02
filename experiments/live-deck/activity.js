@@ -15,9 +15,9 @@
 //   frame()                         what screens draw, or null if nothing changed
 //   you(id)                         what this one phone needs
 //
-// The host gives an activity {state, emit(op), toPresenter(op), phones()}. Ops sent
-// with emit also reach the replay log, so anything sent to the presenter alone, such
-// as an unmoderated drawing, can never appear in a replay.
+// The host gives an activity {state, log, emit(op), toPresenter(op)}. Ops sent with
+// emit reach every screen and the replay log. Anything sent to the presenter alone,
+// such as an unmoderated drawing, can never appear on a shared screen or in a replay.
 //
 // In the browser a kind is described by an object in views.js.
 

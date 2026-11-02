@@ -10,16 +10,51 @@
 }}
 </script>
 <link rel="stylesheet" href="/lib/page.css">
-<style>
-  canvas#stage { height: 72vh; }
-  canvas#panel { display: block; width: 100vw; height: 28vh; }
-  textarea#label {
-    position: absolute; display: none; box-sizing: border-box; margin: 0; padding: 2px 6px;
-    border: 2px dashed #a35200; border-radius: 6px; background: #fff; color: #1B2547; outline: none;
-    font-family: Excalifont, sans-serif; line-height: 1.25; text-align: center; resize: none; overflow: hidden;
-  }
-</style>
-<canvas id="stage"></canvas>
-<canvas id="panel"></canvas>
+<link rel="stylesheet" href="./machine.css">
+
+<header id="bar">
+  <button id="btn-demos" class="strong">demos</button>
+  <span id="mode-pill" title=""></span>
+  <span class="spacer"></span>
+  <div class="group" role="group" aria-label="Run">
+    <button id="btn-run">pause</button>
+    <button id="btn-step" title="Run a tenth of a second, then pause. The . key does this too.">step</button>
+    <span class="speeds" role="group" aria-label="Speed">
+      <button data-speed="0.5">½×</button><button data-speed="1">1×</button><button data-speed="2">2×</button><button data-speed="5">5×</button>
+    </span>
+    <button id="btn-restart">restart</button>
+  </div>
+  <div class="group" role="group" aria-label="Edit">
+    <button id="btn-undo" title="Ctrl or Cmd + Z">undo</button>
+    <button id="btn-redo" title="Ctrl or Cmd + Shift + Z">redo</button>
+    <button id="btn-save" title="Save an .excalidraw file that opens in Excalidraw">save</button>
+    <button id="btn-open" title="Open an .excalidraw file. You can also drop one anywhere.">open</button>
+  </div>
+  <div class="group">
+    <button id="btn-whatif" title="Run this drawing forward many times with different luck">what if?</button>
+    <button id="btn-help" class="strong" title="Every word and shape. The ? key opens this too.">what can I draw?</button>
+  </div>
+</header>
+
+<div id="work">
+  <aside id="left">
+    <div id="tabs" role="tablist" aria-label="Parts">
+      <button data-tab="work">work</button><button data-tab="states">states</button><button data-tab="logic">logic</button>
+    </div>
+    <canvas id="tray" aria-label="Parts to drag onto the board"></canvas>
+    <p id="tray-note"></p>
+  </aside>
+  <main id="middle">
+    <canvas id="stage"></canvas>
+    <canvas id="panel"></canvas>
+    <div id="whatif" hidden></div>
+  </main>
+  <aside id="inspector" aria-live="polite"></aside>
+</div>
+
 <textarea id="label" spellcheck="false"></textarea>
+<div id="hints" hidden></div>
+<section id="reference" hidden></section>
+<section id="gallery" hidden></section>
+<input id="file" type="file" accept=".excalidraw,.json,application/json" hidden>
 <script type="module" src="./main.js"></script>

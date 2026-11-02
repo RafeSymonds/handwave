@@ -1,12 +1,14 @@
 // The phone. A hand-drawn vote above and an ordinary text box below, because a
-// phone's own keyboard is the only good way to type.
+// phone's own keyboard is the only good way to type. A slide with an activity hands
+// the whole page to that activity's controller, from views.js.
 
 import { createStage, hits } from '/lib/stage.js';
 import { box, color, rect, text } from '/lib/draw.js';
 import { Link } from './link.js';
 import { SLIDES, voteOpen } from './meta.js';
 import { apply } from './room.js';
-import { wrap } from './deck.js';
+import { viewOf } from './views.js';
+import { wrap } from './words.js';
 
 const WIDTH = 440;
 
@@ -19,6 +21,8 @@ export async function startPhone({ role, room, info }) {
   let state = null;
   let you = { votes: {} };
   let drawn = false;
+  let control = null;      // The running activity's controller, if this slide has one.
+  let controlSlide = null;
 
   const fitHeight = () => {
     const r = canvas.getBoundingClientRect();
@@ -28,9 +32,26 @@ export async function startPhone({ role, room, info }) {
   };
   fitHeight();
 
+  // An activity takes the whole phone, so the question box steps aside.
+  function syncControl() {
+    const slide = SLIDES[state.index];
+    const next = viewOf(slide)?.startPhone ? slide : null;
+    if (next === controlSlide) return;
+    control?.stop();
+    controlSlide = next;
+    control = next ? viewOf(next).startPhone({ stage, canvas, link, width: WIDTH, slide: next, redraw: () => draw() }) : null;
+    form.hidden = Boolean(control?.hideAsk);
+    fitHeight();
+  }
+
   function view() {
+    syncControl();
     const slide = SLIDES[state.index];
     const out = [];
+    if (control) {
+      if (link.status !== 'live') out.push(text('offline', 24, 2, 'Reconnecting…', { size: 24, color: color.rose.stroke, customData: { handwave: { ghost: true, enter: 'fade' } } }));
+      return [...control.elements(), ...out];
+    }
     let y = 20;
     if (link.status !== 'live') {
       out.push(text('offline', 24, y, 'Reconnecting…', { size: 26, color: color.rose.stroke, customData: { handwave: { ghost: true, enter: 'fade' } } }));
@@ -94,14 +115,23 @@ export async function startPhone({ role, room, info }) {
       you = msg.you;
       // A vote still on its way stays shown until the server answers it.
       for (const op of unacknowledged) if (op.t === 'vote') you.votes[op.slide] = op.option;
+      syncControl();
+      if (msg.you.activity) control?.you?.(msg.you.activity);
+      control?.connected?.();
       draw();
     },
     onOp(op) {
       if (!state) return;
+      if (op.t === 'act-you') {
+        syncControl();
+        if (op.slide === controlSlide?.id) control?.you?.(op.you);
+        return;
+      }
       apply(state, op);
       draw();
     },
     onAck(op, ack) {
+      control?.ack?.(op, ack);
       if (op.t === 'vote') {
         if (ack.vote?.option === null || ack.vote?.option === undefined) delete you.votes[op.slide];
         else if (ack.vote) you.votes[op.slide] = ack.vote.option;
@@ -121,7 +151,7 @@ export async function startPhone({ role, room, info }) {
   // A finger drifts a few pixels during a tap, which the stage reads as a drag.
   // So a tap here is a press and a release on the same option.
   stage.on('up', '*', ({ el, x, y }) => {
-    if (!el || !state || !hits(el, x, y)) return;
+    if (control || !el || !state || !hits(el, x, y)) return;
     const match = /^opt-(.+)-(\d+)$/.exec(el.id);
     if (!match) return;
     const slide = SLIDES[state.index];
@@ -146,5 +176,5 @@ export async function startPhone({ role, room, info }) {
     statusLine.textContent = link.status === 'live' ? 'Sending…' : waitingWords;
   });
 
-  return { stage, link, info, role, get state() { return state; }, get you() { return you; } };
+  return { stage, link, info, role, get state() { return state; }, get you() { return you; }, get control() { return control; } };
 }

@@ -32,6 +32,7 @@ const MAX_ROOMS = 50, MAX_CLIENTS = 1000, MAX_QUESTIONS = 200, MAX_QUESTION_LENG
 const ASK_GAP_MS = 3000;
 const SILENT_MS = 90000;   // A hidden tab's timers can slow to once a minute.
 const MAX_BUFFERED = 512 * 1024;   // A screen this far behind skips frames until it catches up.
+const TALLY_EVERY_MS = 100;
 
 // Messages a connection may send: a steady rate per second and a burst above it.
 const LIMIT = {
@@ -81,7 +82,7 @@ export default ({ route, sockets }) => {
   const roomFor = (name) => {
     if (!rooms.has(name)) {
       if (rooms.size >= MAX_ROOMS) return null;
-      const room = { name, state: newState(), clients: new Set(), ballots: {}, seen: new Map(), lastAsk: new Map(), nextQuestion: 1, activities: new Map(), current: null, currentSlide: null, ticker: null, log: new ReplayLog(), stats: newStats() };
+      const room = { name, state: newState(), clients: new Set(), ballots: {}, seen: new Map(), lastAsk: new Map(), nextQuestion: 1, activities: new Map(), current: null, currentSlide: null, ticker: null, log: new ReplayLog(), stats: newStats(), unsentTallies: {}, tallyTimer: null };
       room.host = {
         state: room.state,
         log: room.log,
@@ -154,8 +155,17 @@ export default ({ route, sockets }) => {
     for (const option of ballots.values()) counts[option]++;
     const tally = { t: 'tally', slide: slide.id, counts };
     apply(room.state, tally);
-    toAll(room, tally);
-    record(room, tally);
+    // A vote changes the room's copy at once. The bars go out at most ten times a
+    // second, because telling every phone about every vote grows with the square of the room.
+    room.unsentTallies[slide.id] = tally;
+    room.tallyTimer ??= setTimeout(() => {
+      room.tallyTimer = null;
+      for (const unsent of Object.values(room.unsentTallies)) {
+        toAll(room, unsent);
+        record(room, unsent);
+      }
+      room.unsentTallies = {};
+    }, TALLY_EVERY_MS);
     return true;
   };
 
@@ -217,7 +227,8 @@ export default ({ route, sockets }) => {
     let last = performance.now(), untilFrame = 0, untilYou = 0;
     room.ticker = setInterval(() => {
       const started = performance.now();
-      const dt = Math.min(0.25, (started - last) / 1000);
+      // A stalled server should catch up on time, within reason. The race caps its own physics.
+      const dt = Math.min(1, (started - last) / 1000);
       last = started;
       activity.tick?.(dt);
       untilFrame -= dt;

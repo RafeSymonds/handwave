@@ -5,11 +5,14 @@ import { QR_FILE, qrDataUrl } from './qr.js';
 import { createStage } from '/lib/stage.js';
 import { randomToken, Link } from './link.js';
 import { scene, ownerOf } from './deck.js';
-import { SLIDES } from './meta.js';
+import { SLIDES, branchTarget, slideById } from './meta.js';
 import { apply, stepFrom } from './room.js';
+import { viewOf } from './views.js';
 
 const SEND_EVERY_MS = 33;
 const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+// The panel redraws with every frame of an activity, so text is only touched when it changes.
+const setText = (el, words) => { if (el.textContent !== words) el.textContent = words; };
 
 export async function startScreen({ role, room, info }) {
   const presenting = role === 'presenter';
@@ -21,13 +24,40 @@ export async function startScreen({ role, room, info }) {
 
   let state = null;
   let drawn = false;
+  let running = null;       // The activity view drawing on this stage right now.
+  let runningSlide = null;
+  let sceneKey = '';
+
+  // The current slide decides which activity view runs, as it does on the server.
+  function syncActivity() {
+    const slide = SLIDES[state.index];
+    const view = viewOf(slide);
+    const next = view?.startScreen ? slide : null;
+    if (next === runningSlide) return;
+    running?.stop();
+    runningSlide = next;
+    running = next ? view.startScreen(stage) : null;
+    if (running && state.live[slide.id]) running.frame(state.live[slide.id]);
+  }
 
   const draw = (options = {}) => {
     if (!state) return;
-    stage.show(scene(state, { info }), { instant: !drawn, ...options });
+    syncActivity();
+    const view = viewOf(SLIDES[state.index]);
+    stage.show(scene(state, { info }), { instant: !drawn, ...(view?.stagger !== undefined ? { stagger: view.stagger } : {}), ...options });
     drawn = true;
     if (presenting) showPanel();
   };
+
+  // Frames arrive many times a second. Only some of them change what the slide says.
+  function onFrame(op) {
+    if (op.slide !== SLIDES[state.index].id) return;
+    running?.frame(op.frame);
+    const view = viewOf(SLIDES[state.index]);
+    if (view?.drawEveryFrame) { draw({ morphSeconds: view.morphSeconds }); return; }
+    const key = view?.sceneKey?.(op.frame) ?? JSON.stringify(op.frame);
+    if (key !== sceneKey) { sceneKey = key; draw(); }
+  }
 
   const link = new Link({
     room,
@@ -40,6 +70,7 @@ export async function startScreen({ role, room, info }) {
     onOp(op) {
       if (!state) return;
       apply(state, op);
+      if (op.t === 'act-frame') { onFrame(op); return; }
       // A drag should be followed closely, and a return home should be seen.
       draw(op.t === 'offset' ? { morphSeconds: 0.09 } : op.t === 'home' ? homeMotion : {});
     },
@@ -55,11 +86,11 @@ export async function startScreen({ role, room, info }) {
       const el = document.getElementById('p-status');
       if (status === 'live' && !info.reachable) {
         el.dataset.status = 'down';
-        el.textContent = 'Phones cannot reach this server. Restart it with HOST=0.0.0.0 npm start';
+        setText(el, 'Phones cannot reach this server. Restart it with HOST=0.0.0.0 npm start');
         return;
       }
       el.dataset.status = status;
-      el.textContent = status === 'live' && state ? `Live: ${count(state.counts.phones, 'phone')}, ${count(state.counts.screens, 'screen')}` : status === 'down' ? 'Connection lost. Keep going: your changes will send when it returns.' : words;
+      setText(el, status === 'live' && state ? `Live: ${count(state.counts.phones, 'phone')}, ${count(state.counts.screens, 'screen')}` : status === 'down' ? 'Connection lost. Keep going: your changes will send when it returns.' : words);
     }
   }
 
@@ -70,19 +101,49 @@ export async function startScreen({ role, room, info }) {
   function showPanel() {
     const slide = SLIDES[state.index];
     showStatus(link.status);
-    document.getElementById('p-position').textContent = `Slide ${state.index + 1} of ${SLIDES.length}, step ${state.step + 1} of ${slide.steps}`;
-    document.getElementById('p-notes').textContent = slide.notes[state.step] ?? '';
+    setText(document.getElementById('p-position'), `Slide ${state.index + 1} of ${SLIDES.length}, step ${state.step + 1} of ${slide.steps}`);
+    setText(document.getElementById('p-notes'), slide.notes[state.step] ?? '');
+    // A presenter should never have to guess where a branching talk goes.
+    const nextEl = document.getElementById('p-next');
+    nextEl.hidden = !slide.branch || state.step < slide.steps - 1;
+    if (slide.branch) setText(nextEl, `Next goes to: ${slideById(branchTarget(slide, state.tallies[slide.id])).title}`);
+    document.getElementById('p-pointer').hidden = slide.pointer !== 'ink';
     const moved = Object.keys(state.offsets[slide.id] ?? {}).length;
     const strokes = state.ink[slide.id]?.length ?? 0;
     const offScript = document.getElementById('p-offscript');
     offScript.hidden = !moved && !strokes;
-    offScript.textContent = `Off script: ${moved} moved, ${strokes} drawn. Esc returns.`;
+    setText(offScript, `Off script: ${moved} moved, ${strokes} drawn. Esc returns.`);
     const summary = JSON.stringify([state.questions, state.shown?.id]);
     if (summary !== listed) {
       listed = summary;
       showQuestions();
     }
+    showActivityPanel(slide);
   }
+
+  // What the current activity asks of the presenter, such as drawings to review.
+  let panelShown = null;
+  function showActivityPanel(slide) {
+    const view = viewOf(slide);
+    const root = document.getElementById('p-activity');
+    root.hidden = !view?.panel;
+    if (!view?.panel) { panelShown = null; return; }
+    const key = `${slide.id}:${view.panelKey(state, slide)}`;
+    if (key === panelShown) return;
+    panelShown = key;
+    view.panel(root, { slide, state, commit: reviewCommit });
+  }
+
+  // What is decided leaves the list at once, so the next key press acts on the next drawing.
+  // What reaches the room still only happens when the server says so.
+  const reviewCommit = (op) => {
+    const slide = SLIDES[state.index].id;
+    link.send({ ...op, slide });
+    if (op.t === 'gal-ok' || op.t === 'gal-no') {
+      apply(state, { t: 'gal-out', slide, id: op.id });
+      showPanel();
+    }
+  };
 
   // Questions come from strangers, so they only ever reach the page as text.
   function showQuestions() {
@@ -112,6 +173,7 @@ export async function startScreen({ role, room, info }) {
   }
 
   document.getElementById('p-audience').href = `?role=audience&room=${encodeURIComponent(room)}`;
+  document.getElementById('p-replay').href = `?role=replay&room=${encodeURIComponent(room)}`;
 
   // ------------------------------------------------------------------ input
 
@@ -128,7 +190,7 @@ export async function startScreen({ role, room, info }) {
     const go = (delta) => {
       if (!state) return;
       flushDrag();
-      const to = stepFrom(state.index, state.step, delta);
+      const to = stepFrom(state, delta);
       if (to.index !== state.index || to.step !== state.step) commit({ t: 'goto', ...to });
     };
     const home = () => {
@@ -141,6 +203,10 @@ export async function startScreen({ role, room, info }) {
       if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); go(1); }
       else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); go(-1); }
       else if (e.key === 'Escape') { e.preventDefault(); home(); }
+      else if (state) {
+        const slide = SLIDES[state.index];
+        if (viewOf(slide)?.key?.(e, { slide, state, commit: reviewCommit })) e.preventDefault();
+      }
     });
 
     // What the pointer is doing: moving a thing, or drawing.
@@ -165,7 +231,9 @@ export async function startScreen({ role, room, info }) {
     stage.on('down', '*', ({ el, event }) => {
       if (!state) return;
       const slide = SLIDES[state.index].id;
-      if (el && !event.shiftKey) {
+      // A slide that is drawn on by default moves things with Shift instead.
+      const inkFirst = SLIDES[state.index].pointer === 'ink';
+      if (el && (inkFirst ? event.shiftKey : !event.shiftKey)) {
         const owner = ownerOf(el);
         gesture = { kind: 'move', slide, owner, from: state.offsets[slide]?.[owner] ?? [0, 0] };
       } else gesture = { kind: 'ink', slide, stroke: null, buffer: [] };
@@ -204,10 +272,12 @@ export async function startScreen({ role, room, info }) {
       if (state) draw();
     });
 
-    stage.on('move', '*', ({ x, y }) => {
-      canvas.style.cursor = gesture?.kind === 'move' ? 'grabbing' : gesture ? 'crosshair' : stage.hit(x, y) ? 'grab' : 'crosshair';
+    stage.on('move', '*', ({ x, y, event }) => {
+      const inkFirst = state && SLIDES[state.index].pointer === 'ink';
+      const grabs = stage.hit(x, y) && (inkFirst ? event.shiftKey : true);
+      canvas.style.cursor = gesture?.kind === 'move' ? 'grabbing' : gesture ? 'crosshair' : grabs ? 'grab' : 'crosshair';
     });
   }
 
-  return { stage, link, info, role, get state() { return state; } };
+  return { stage, link, info, role, get state() { return state; }, get running() { return running; } };
 }

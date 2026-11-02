@@ -1,0 +1,100 @@
+[
+  {
+    "id": "queue",
+    "group": "work",
+    "title": "Work piles up when it arrives faster than the workers finish",
+    "try": "change \"workers 3\" to \"workers 2\", or click a worker to kill it.",
+    "summary": "A queue, workers and a retry loop. One worker fewer and the line never stops growing."
+  },
+  {
+    "id": "lines",
+    "group": "work",
+    "title": "One shared line beats one line per worker",
+    "try": "watch the chart. Both rows have the same work and the same four workers. Then click a worker in each row to kill it.",
+    "summary": "Same load, same workers, different lines. The chart shows the wait each row gets."
+  },
+  {
+    "id": "storm",
+    "group": "work",
+    "title": "Retries keep a system down after the spike has gone",
+    "try": "wait for the burst at 15 seconds. Then change \"copy after 5s\" to \"after 5s\" and press restart.",
+    "summary": "Clients give up and try again, but the abandoned work still gets done. Gray tokens are work nobody wants."
+  },
+  {
+    "id": "cache",
+    "group": "work",
+    "title": "Empty the cache and the database falls behind",
+    "try": "click the cache, then press \"empty the cache\". The database only ever coped because the cache hid most of the work.",
+    "summary": "A cache that earns its hit rate from what it remembers. Popular items come up most."
+  },
+  {
+    "id": "fanout",
+    "group": "work",
+    "title": "Fan-out makes rare slowness common",
+    "try": "click split, then press compare on \"split 8\". One slow part in fifty is enough once a job waits for many.",
+    "summary": "One job becomes many, and it finishes when the slowest part does."
+  },
+  {
+    "id": "balance",
+    "group": "work",
+    "title": "Taking turns keeps feeding a dead worker",
+    "try": "click every box in one row to kill that worker. Then change \"round robin\" to \"least busy\".",
+    "summary": "A load balancer with three workers. How it chooses decides what a failure costs."
+  },
+  {
+    "id": "batch",
+    "group": "work",
+    "title": "Batches too small back up, and batches too big wait for nothing",
+    "try": "click batch, then press compare on the 4. There is a best size, and it isn't the biggest.",
+    "summary": "A worker does a whole batch in the time of one job, so batching buys capacity and costs waiting."
+  },
+  {
+    "id": "priority",
+    "group": "work",
+    "title": "A priority lane lets other work wait forever",
+    "try": "watch the two chart lines split apart. Then delete \"priority gold\" from the queue's label.",
+    "summary": "Named work takes the front of the line. The chart shows what that costs everything else."
+  },
+  {
+    "id": "limit",
+    "group": "work",
+    "title": "A rate limit keeps the line short by saying no",
+    "try": "click the rate limit and press compare on the 3, or delete its label to see what it was holding back.",
+    "summary": "Too much work arrives. Without a limit the wait grows without end. With one, the cost moves to work turned away."
+  },
+  {
+    "id": "breaker",
+    "group": "states",
+    "title": "A circuit breaker stops calling a service that keeps failing",
+    "try": "press 1 three times to trip it, then wait five seconds.",
+    "summary": "A state machine: its arrows are the events and timers it obeys."
+  },
+  {
+    "id": "backoff",
+    "group": "states",
+    "title": "Waiting twice as long after each failure gives a service room to recover",
+    "try": "press fail again and again. The wait doubles each time, then it gives up.",
+    "summary": "Guards, counters and actions, written on arrows the way a state diagram writes them."
+  },
+  {
+    "id": "weather",
+    "group": "chance",
+    "title": "Where you start stops mattering",
+    "try": "drag the start arrow onto rainy. The bars end up in the same place.",
+    "summary": "A chance walk with 300 walkers. Each black tick is where that shape settles in the long run."
+  },
+  {
+    "id": "latch",
+    "group": "logic",
+    "title": "Two gates that feed each other remember",
+    "try": "turn \"set\" on and off. The lamp stays lit. Then turn \"reset\" on and off.",
+    "summary": "The smallest memory there is. Changes travel along wires at a speed you can see."
+  },
+  {
+    "id": "counter",
+    "group": "logic",
+    "title": "Chained flip-flops count in binary",
+    "try": "watch the lamps count up. Each one runs at half the speed of the one before.",
+    "summary": "A clock and four flip-flops. Delete a wire and the higher bits stop."
+  }
+]

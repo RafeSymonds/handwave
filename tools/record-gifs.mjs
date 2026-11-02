@@ -123,6 +123,41 @@ async function dragTo(p, from, to, ms = 700) {
   await p.mouse.up();
 }
 
+// The deck's recordings show a stand-in address, so this machine's real one stays out
+// of the repository.
+function deckContexts(browser) {
+  const JOIN = 'http://192.168.1.20:4173/join';
+  const code = qrcode(0, 'Q');
+  code.addData(JOIN);
+  code.make();
+  const n = code.getModuleCount();
+  const rows = Array.from({ length: n }, (_, r) => Array.from({ length: n }, (_, c) => (code.isDark(r, c) ? '1' : '0')).join(''));
+  const standIn = async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    await route.fulfill({ response, json: { ...body, reachable: true, lan: '192.168.1.20', joinUrl: JOIN, qr: rows } });
+  };
+  return {
+    screenContext: async (viewport) => {
+      const c = await browser.newContext({ viewport });
+      await c.route('**/live-deck/info*', standIn);
+      await c.addInitScript(POINTER);
+      return c;
+    },
+    phoneContext: async () => {
+      const c = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+      await c.addInitScript(POINTER);
+      return c;
+    },
+  };
+}
+
+async function deckTo(presenter, id) {
+  const { SLIDES } = await import('../experiments/live-deck/meta.js');
+  const index = SLIDES.findIndex((slide) => slide.id === id);
+  while ((await presenter.evaluate(() => window.app.state.index)) < index) { await presenter.keyboard.press('ArrowRight'); await sleep(40); }
+}
+
 // ---------------------------------------------------------------- the scripts
 
 const GIFS = {
@@ -321,32 +356,10 @@ const GIFS = {
     await p.close();
   },
 
-  // The big screen and one phone, side by side. The address on screen is a stand-in,
-  // so this machine's real one stays out of the repository.
+  // The big screen and one phone, side by side.
   async 'live-deck'({ base, browser }) {
     const PATH = '/experiments/live-deck/';
-    const JOIN = 'http://192.168.1.20:4173/join';
-    const code = qrcode(0, 'Q');
-    code.addData(JOIN);
-    code.make();
-    const n = code.getModuleCount();
-    const rows = Array.from({ length: n }, (_, r) => Array.from({ length: n }, (_, c) => (code.isDark(r, c) ? '1' : '0')).join(''));
-    const standIn = async (route) => {
-      const response = await route.fetch();
-      const body = await response.json();
-      await route.fulfill({ response, json: { ...body, reachable: true, lan: '192.168.1.20', joinUrl: JOIN, qr: rows } });
-    };
-    const screenContext = async (viewport) => {
-      const c = await browser.newContext({ viewport });
-      await c.route('**/live-deck/info*', standIn);
-      await c.addInitScript(POINTER);
-      return c;
-    };
-    const phoneContext = async () => {
-      const c = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
-      await c.addInitScript(POINTER);
-      return c;
-    };
+    const { screenContext, phoneContext } = deckContexts(browser);
 
     const presenter = await page(await screenContext({ width: 1940, height: 900 }));
     await presenter.goto(`${base}${PATH}`);
@@ -419,6 +432,62 @@ const GIFS = {
     await sleep(1800);
     await rec.stop();
     encode('live-deck-offscript', [rec], single(800, 15, 'crop=1600:900:0:0,'));
+  },
+
+  // The room as a crowd on the slide. The presenter's ink is the bridge.
+  async 'live-deck-race'({ base, browser }) {
+    const { connectPhones, raceBots } = await import('../experiments/live-deck/simulated-phones.mjs');
+    const { screenContext } = deckContexts(browser);
+    const presenter = await page(await screenContext({ width: 1940, height: 900 }));
+    await presenter.goto(`${base}/experiments/live-deck/`);
+    await presenter.waitForFunction(() => window.app?.state);
+    const bots = await connectPhones(Number(new URL(base).port), 'main', 16);
+    await deckTo(presenter, 'race');
+    await sleep(1500);
+    const rec = new Recorder(presenter, 'deck-race');
+    await rec.start();
+    await presenter.keyboard.press('ArrowRight');   // Starts the race, from the first box.
+    const stop = raceBots(bots);
+    await sleep(6500);
+    await glide(presenter, { x: 1000, y: 800 }, { x: 805, y: 578 }, 500);
+    await dragTo(presenter, { x: 805, y: 578 }, { x: 1300, y: 476 }, 1200);
+    await presenter.mouse.move(1000, 800);
+    await sleep(11000);
+    await rec.stop();
+    encode('live-deck-race', [rec], single(800, 15, 'crop=1600:900:0:0,'));
+    stop();
+    bots.forEach((b) => b.ws.close());
+  },
+
+  // Every phone is a worker. The line backs up when the room stops tapping.
+  async 'live-deck-workers'({ base, browser }) {
+    const { connectPhones, queueBots } = await import('../experiments/live-deck/simulated-phones.mjs');
+    const { screenContext } = deckContexts(browser);
+    const presenter = await page(await screenContext({ width: 1940, height: 900 }));
+    await presenter.goto(`${base}/experiments/live-deck/`);
+    await presenter.waitForFunction(() => window.app?.state);
+    const audience = await page(await screenContext({ width: 1600, height: 900 }));
+    await audience.goto(`${base}/experiments/live-deck/?role=audience`);
+    await audience.waitForFunction(() => window.app?.state);
+    const bots = await connectPhones(Number(new URL(base).port), 'main', 30);
+    await deckTo(presenter, 'queue');
+    let stop = queueBots(bots);
+    await sleep(4000);
+    const rec = new Recorder(audience, 'deck-workers');
+    await rec.start();
+    await sleep(2500);
+    await presenter.keyboard.press('ArrowRight');   // 90% of what the room can finish.
+    await sleep(4500);
+    await presenter.keyboard.press('ArrowRight');   // Everyone stops.
+    stop();
+    await sleep(8000);
+    await presenter.keyboard.press('ArrowRight');   // Back to 50%.
+    stop = queueBots(bots);
+    await sleep(7000);
+    await rec.stop();
+    encode('live-deck-workers', [rec], single());
+    stop();
+    bots.forEach((b) => b.ws.close());
   },
 };
 

@@ -4,34 +4,16 @@
 
 import { qrElement } from './qr.js';
 import { arrow, box, color, diamond, ellipse, line, rect, text } from '/lib/draw.js';
-import { measure } from '/lib/stage.js';
-import { SLIDES } from './meta.js';
+import { SLIDES, slideById, winningOption } from './meta.js';
+import { viewOf } from './views.js';
+import { wrap } from './words.js';
+
+export { wrap };
 
 const INK = color.rose.stroke;
 
 const titled = (slide, size = 60) => text(`${slide.id}-title`, 80, 52, slide.title, { size, font: 6 });
 const quiet = { customData: { handwave: { ghost: true } } };
-
-/** Break words into lines that fit a width. A word too long for a line is split. */
-export function wrap(words, width, size, font = 5) {
-  const lines = [];
-  let current = '';
-  const fits = (s) => measure(s, size, font).width <= width;
-  for (let word of String(words).split(/\s+/).filter(Boolean)) {
-    while (!fits(word)) {
-      let cut = word.length - 1;
-      while (cut > 1 && !fits((current ? `${current} ` : '') + word.slice(0, cut))) cut--;
-      lines.push((current ? `${current} ` : '') + word.slice(0, cut));
-      current = '';
-      word = word.slice(cut);
-    }
-    const next = current ? `${current} ${word}` : word;
-    if (fits(next)) current = next;
-    else { lines.push(current); current = word; }
-  }
-  if (current) lines.push(current);
-  return lines.join('\n');
-}
 
 /** An arrow that follows the shapes it joins when they are dragged off script. */
 const link = (id, from, to, points, o = {}) => arrow(id, points, { ...o, customData: { live: { from, to } } });
@@ -131,16 +113,54 @@ const VIEWS = {
     return out;
   },
 
+  choose: votingSlide((slide, counts) => {
+    const winner = winningOption(counts);
+    const tied = counts.filter((n) => n === counts[winner]).length > 1;
+    return [text('choose-picked', 80, 500, `${tied ? 'A tie, so the first one wins' : 'The room picked'}: ${slide.vote.options[winner]}.`, { size: 44, color: color.green.stroke })];
+  }, { rowHeight: 140 }),
+
+  'back-in': steps3([
+    ['1. The phone numbers each change and keeps it until answered', color.blue],
+    ['2. A full copy says how far the room has seen this phone', color.amber],
+    ['3. The phone resends only what is left', color.green],
+  ], 'So a vote that crossed a dying connection counts exactly once.'),
+
+  fast: steps3([
+    ['Screens get every frame, 30 a second in the race, and skip some if they fall behind', color.blue],
+    ['Phones get a short status, and only when theirs changes', color.amber],
+    ['A phone can send 30 inputs a second. The rest are dropped unread', color.green],
+  ], 'So one more phone costs the room little, and a flood from one phone hurts only that phone.'),
+
   end: votingSlide(() => [text('end-floor', 80, 690, 'Questions?', { size: 84, font: 6, color: color.amber.stroke }), text('end-floor-note', 84, 800, 'Send yours from your phone.', { size: 38, color: color.muted })], { rowHeight: 120 }),
 };
+
+// A short branch of the talk: three boxes in order and what follows from them.
+function steps3(items, point) {
+  return (step, { slide, state }) => {
+    const out = [text(`${slide.id}-title`, 80, 52, slide.title, { size: 60, font: 6 })];
+    const choice = slideById('choose');
+    const counts = state.tallies[choice.id] ?? [];
+    const votes = counts[choice.branch.indexOf(slide.id)] ?? 0;
+    out.push(text(`${slide.id}-why`, 84, 146, `You picked this${votes ? `, with ${votes} ${votes === 1 ? 'vote' : 'votes'}` : ''}.`, { size: 34, color: color.muted, ...quiet }));
+    items.forEach(([words, tone], i) => {
+      const x = 80 + i * 490;
+      out.push(...box(`${slide.id}-b${i}`, x, 260, 440, 240, wrap(words, 390, 34), { tone, size: 34 }));
+      if (i) out.push(link(`${slide.id}-a${i}`, `${slide.id}-b${i - 1}`, `${slide.id}-b${i}`, [[x - 44, 380], [x - 6, 380]], { strokeColor: color.muted }));
+    });
+    out.push(text(`${slide.id}-point`, 84, 580, wrap(point, 1430, 44), { size: 44, color: color.amber.stroke }));
+    return out;
+  };
+}
 
 // The chart a voting slide is built around. The bars share a scale that only
 // shrinks when the longest would run out of room, so each vote visibly adds length.
 function votingSlide(afterClose, { rowHeight = 125 } = {}) {
   return (step, ctx) => {
     const { slide, state, info } = ctx;
-    const { options, closeAt, answer } = slide.vote;
+    const { options, closeAt } = slide.vote;
     const counts = state.tallies[slide.id] ?? options.map(() => 0);
+    // A branching vote's answer is whatever the room chose.
+    const answer = slide.branch ? winningOption(counts) : slide.vote.answer;
     const total = counts.reduce((a, b) => a + b, 0);
     const closed = step >= closeAt;
     const X = 540, MAX = 860, TOP = 190, BAR = 74;
@@ -155,11 +175,11 @@ function votingSlide(afterClose, { rowHeight = 125 } = {}) {
       const y = TOP + i * rowHeight;
       const width = Math.max(4, counts[i] * unit);
       const row = { customData: { live: { with: owner } } };
-      out.push(text(`${owner}-label`, X - 24, y + BAR / 2, option, { size: 40, align: 'right', valign: 'middle', color: tone === color.gray ? color.muted : color.ink, ...row }));
+      out.push(text(`${owner}-label`, X - 24, y + BAR / 2, wrap(option, X - 110, 40), { size: 40, align: 'right', valign: 'middle', color: tone === color.gray ? color.muted : color.ink, ...row }));
       out.push(rect(`${owner}-bar`, X, y, width, BAR, { tone, roundness: null, ...row }));
       out.push(text(`${owner}-count`, X + width + 18, y + BAR / 2, String(counts[i]), { size: 44, valign: 'middle', color: tone.stroke, customData: { live: { with: owner }, handwave: { enter: 'fade' } } }));
     });
-    if (closed) out.push(...afterClose(slide));
+    if (closed) out.push(...afterClose(slide, counts));
     else {
       out.push(text(`${slide.id}-join`, 80, 800, `Vote on your phone: ${info.joinUrl}`, { size: 32, color: color.muted }));
       if (info.qr) out.push(qrElement(`${slide.id}-qr`, 1340, 670, 220));
@@ -230,8 +250,10 @@ function questionNote(q) {
 /** Everything on the shared screen for a state of the room. */
 export function scene(state, { info }) {
   const slide = SLIDES[state.index];
-  const scripted = VIEWS[slide.id](state.step, { slide, state, info });
-  const note = state.shown ? questionNote(state.shown) : [];
+  const view = viewOf(slide)?.slide ?? VIEWS[slide.id];
+  const scripted = view(state.step, { slide, state, info });
+  // A question the presenter removed has no words left in a replay, so it shows nothing.
+  const note = state.shown?.text ? questionNote(state.shown) : [];
   const moved = applyOffsets([...scripted, ...note], state.offsets[slide.id] ?? {});
   return [...moved, ...(state.ink[slide.id] ?? []).map(inkElement)];
 }

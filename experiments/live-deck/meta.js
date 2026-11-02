@@ -59,12 +59,12 @@ export const SLIDES = [
     activity: {
       kind: 'race',
       ground: [
-        { id: 'race-state', x: 40, y: 640, width: 300, height: 170, words: 'state' },
-        { id: 'race-view', x: 520, y: 560, width: 300, height: 170, words: 'view(state)' },
+        { id: 'race-state', x: 40, y: 640, width: 320, height: 170, words: 'state' },
+        { id: 'race-view', x: 510, y: 580, width: 310, height: 170, words: 'view(state)' },
         { id: 'race-show', x: 1290, y: 480, width: 270, height: 170, words: 'stage.show' },
       ],
       goal: { id: 'race-flag', x: 1450, y: 390, size: 80 },
-      spawn: { on: 'race-state', from: 70, to: 310 },
+      spawn: { on: 'race-state', from: 70, to: 300 },
     },
     notes: [
       'Everyone finds their number on the screen and tries left, right and jump. Next starts the race and sends everyone back to the start.',
@@ -87,9 +87,9 @@ export const SLIDES = [
     },
     notes: [
       'Each phone is a worker. Jobs arrive at half of what this room can finish, so the line stays short and most people wait. Next raises it to 90%.',
-      'There is still spare capacity, yet the line grows in lumps, because jobs arrive unevenly. Give it 30 seconds. Next asks everyone to stop.',
+      'Near capacity, a few people slowing down is enough to grow the line. How far it grows depends on this room. Give it 30 seconds and say what you see. Next asks everyone to stop.',
       'Ask the room to stop tapping and count to ten aloud. Jobs held too long go back to the line. Workers turn red. Next asks them to start again.',
-      'Back to 50%. Point at the chart: the backlog takes far longer to clear than it took to build. That gap is why a brief outage hurts for so long.',
+      'Back to 50%. Point at the chart: the backlog takes longer to clear than it took to build, because only the spare capacity works it off. That is why a brief outage hurts for so long.',
     ],
   },
   {
@@ -98,7 +98,7 @@ export const SLIDES = [
     steps: 1,
     activity: { kind: 'gallery', prompt: 'Draw what happens when you tap a vote' },
     notes: [
-      'Everyone draws their picture of it. You see each drawing first, in this panel. Approve the ones worth talking about, and ask what each one assumes. Nothing reaches the screen unless you approve it. Project the audience screen, not this window.',
+      'Everyone draws their picture of it. You decide what reaches the screen. Approve the ones worth talking about, and ask what each one assumes.',
     ],
   },
   {

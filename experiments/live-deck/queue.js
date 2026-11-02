@@ -2,12 +2,13 @@
 // the room could finish, and each job needs one tap. A worker who stops tapping loses
 // their job back to the line, so the line grows exactly when people stop.
 
-const PER_WORKER = 0.6;        // Jobs a second one person can keep up with, used to set the arrival rate.
-const REST_SECONDS = 0.8;      // A worker's shortest time per job. This is what limits the room's capacity.
+const PER_WORKER = 0.6;        // What one attentive person can finish per second. 100% load is this, times the phones connected.
+const REST_SECONDS = 1.2;      // A worker's shortest time per job. With a tap's reaction time, that gives about PER_WORKER.
 const STALL_SECONDS = 5;       // A job held this long goes back to the front of the line.
 const MAX_LINE = 400;          // Past this, arriving jobs are turned away and counted.
 const MAX_WORKERS = 200;
 const MAX_HISTORY = 300;       // One point a second.
+const GONE_SECONDS = 12;       // How long a dropped phone's desk stays on screen. It reappears if the phone returns.
 
 // A small repeatable random source, so a test of the model can assert exact behavior.
 function randomFrom(seed) {
@@ -35,7 +36,6 @@ export class QueueModel {
     this.finished = 0;
     this.turnedAway = 0;
     this.returned = 0;
-    this.waits = [];         // The last 40 finished jobs' seconds from arrival to done
     this.history = [];
     this.nextSample = 0;
     this.marks = [];
@@ -56,6 +56,7 @@ export class QueueModel {
     if (!worker) return;
     this._giveBack(worker);
     worker.gone = true;
+    worker.goneAt = this.now;
   }
 
   _giveBack(worker) {
@@ -87,8 +88,6 @@ export class QueueModel {
     worker.stalled = false;
     if (!worker.job || worker.job.id !== job) return false;
     this.finished++;
-    this.waits.push(this.now - worker.job.at);
-    if (this.waits.length > 40) this.waits.shift();
     worker.finished++;
     worker.job = null;
     worker.restUntil = this.now + REST_SECONDS;
@@ -138,8 +137,9 @@ export class QueueModel {
     }
   }
 
-  averageWait() {
-    return this.waits.length ? this.waits.reduce((a, b) => a + b, 0) / this.waits.length : 0;
+  /** How long the job at the front of the line has waited. Finished jobs would hide a growing wait. */
+  oldestWait() {
+    return this.line.length ? this.now - this.line[0].at : 0;
   }
 
   held() {
@@ -183,14 +183,14 @@ export class QueueActivity {
 
   frame() {
     const m = this.model;
-    const workers = [...m.workers.values()].map((w) => [w.number, w.job?.id ?? 0, w.gone ? 3 : w.stalled ? 2 : w.job ? 1 : 0]);
+    const workers = [...m.workers.values()].filter((w) => !w.gone || m.now - w.goneAt < GONE_SECONDS).map((w) => [w.number, w.job?.id ?? 0, w.gone ? 3 : w.stalled ? 2 : w.job ? 1 : 0]);
     const line = m.line.slice(0, 240).map((j) => j.id);
     const key = JSON.stringify([workers, line, m.finished, m.turnedAway, m.line.length, m.history.length, this.step]);
     if (key === this.lastKey) return null;
     this.lastKey = key;
     return {
       at: Math.round(m.now * 1000), step: this.step, load: m.load, waiting: m.line.length, line, workers,
-      arrived: m.arrived, finished: m.finished, turnedAway: m.turnedAway, wait: Math.round(m.averageWait() * 10) / 10,
+      arrived: m.arrived, finished: m.finished, turnedAway: m.turnedAway, oldest: Math.round(m.oldestWait()),
       history: m.history, marks: m.marks.map((k) => [Math.round(k.at), k.label]),
     };
   }

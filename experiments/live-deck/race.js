@@ -10,7 +10,7 @@ import { compileLevel } from '../game-platformer/level.js';
 import { Sim, STEP, R, CIRCLES } from '../game-platformer/sim.js';
 
 const MAX_RACERS = 200;
-const GONE_SECONDS = 30;       // How long a dropped phone's figure waits for it.
+const GONE_SECONDS = 12;       // How long a dropped phone's figure stays on screen. It reappears if the phone returns.
 const REBUILD_SECONDS = 0.1;   // New ink becomes ground at most this often.
 const BOTTOM = 300;            // Sim kills a figure 700 below the level. This puts that just under the slide.
 const INK = '#000000';         // The level reads color as meaning. This color means solid.
@@ -27,9 +27,10 @@ export function raceLevel(spec, offsets = {}, ink = []) {
     const [dx, dy] = shifted(g.id);
     return solid(g.id, 'rectangle', g.x + dx, g.y + dy, { width: g.width, height: g.height, roundness: { type: 3 } });
   });
-  // The slide's edges hold figures in. They run past the bottom so a figure can still fall.
-  elements.push(solid('race-wall-l', 'line', 0, -1000, { points: [[0, 0], [0, 1000 + BOTTOM]] }));
-  elements.push(solid('race-wall-r', 'line', 1600, -1000, { points: [[0, 0], [0, 1000 + BOTTOM]] }));
+  // Walls hold figures on the slide, just outside the first and last boxes so nobody
+  // can drop down behind them.
+  elements.push(solid('race-wall-l', 'line', 25, -1000, { points: [[0, 0], [0, 2000]] }));
+  elements.push(solid('race-wall-r', 'line', 1575, -1000, { points: [[0, 0], [0, 2000]] }));
   const [gx, gy] = shifted(spec.goal.id);
   elements.push({ id: spec.goal.id, type: 'diamond', x: spec.goal.x + gx, y: spec.goal.y + gy, width: spec.goal.size, height: spec.goal.size, backgroundColor: '#d3f9d8', strokeColor: '#2b8a3e' });
   for (const stroke of ink) {
@@ -44,7 +45,7 @@ export function raceLevel(spec, offsets = {}, ink = []) {
 
 export class Race {
   static tickHz = 60;
-  static frameHz = 20;
+  static frameHz = 30;
   static youHz = 4;
   static logEverySeconds = 0.2;
 
@@ -109,18 +110,14 @@ export class Race {
     if (racer && Number.isInteger(msg.i) && msg.i >= 0 && msg.i <= 7) racer.bits = msg.i;
   }
 
-  /** Step 0 warms up, step 1 races, the last step shows the result and the clock stops. */
+  /** Step 0 warms up. Arriving at step 1 always starts a fresh race. The last step stops the clock. */
   setStep(step) {
-    const before = this.step;
+    if (step === this.step) return;
     this.step = step;
-    if (step === before) return;
-    if (step === 1 && before !== 2) this._start();
-    else if (step === 0) this._reset();
-    else if (step === 1) this.endedAt = null;
-    else if (step === 2) {
-      if (this.startedAt === null) this._start();
-      this.endedAt = this.time;
-    }
+    if (step === 0) this._reset();
+    else if (step === 1) this._start();
+    else if (this.startedAt === null) { this._start(); this.endedAt = this.time; }
+    else this.endedAt = this.time;
   }
 
   _reset() {
@@ -146,13 +143,12 @@ export class Race {
       // A shape dragged onto a figure would trap it inside the outline, so lift it onto the top.
       const p = sim.player;
       for (const body of this.level.closedSolids) {
-        const y = p.y - CIRCLES[1];
-        if (p.x > body.minX && p.x < body.maxX && y > body.minY && y < body.maxY) {
-          p.y = body.minY - R - 1;
-          p.vy = 0;
-          p.grounded = false;
-          p.body = null;
-        }
+        if (p.x <= body.minX || p.x >= body.maxX) continue;
+        if (!CIRCLES.every((h) => p.y - h > body.minY && p.y - h < body.maxY)) continue;
+        p.y = body.minY - R - 1;
+        p.vy = 0;
+        p.grounded = false;
+        p.body = null;
       }
     }
   }

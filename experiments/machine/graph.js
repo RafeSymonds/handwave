@@ -186,6 +186,9 @@ export const ownerOf = (text) => text.containerId ?? text.customData?.machine?.o
 // ---------------------------------------------------------------------------
 // The program.
 
+// The numbers a chart can read from a shape in a flow. sim.metrics() fills these in.
+const METRICS = ['waiting', 'busy', 'inside', 'done', 'rate', 'dropped', 'wasted', 'hitrate', 'time'];
+
 const LOGIC_KINDS = new Set(['switch', 'button', 'clock', 'and', 'or', 'not', 'xor', 'nand', 'nor', 'flip', 'lamp']);
 
 function chooseMode(labels, edgeLabels, linked) {
@@ -319,14 +322,14 @@ function kindOf(n, mode) {
 // A word that reads fine but can't do anything on this kind of shape.
 function lintWords(nodes, add) {
   for (const n of nodes.values()) {
-    const kindName = KINDS[n.kind]?.name ?? n.kind;
+    const kindName = KINDS[n.kind]?.phrase ?? n.kind;
     for (const hit of n.hits) {
       const w = hit.word;
       const text = hit.text.trim();
       const place = textAt(n, hit.line);
       const where = { textId: place.id, lineInText: place.line, line: hit.line, start: hit.start, end: hit.end, text, level: 'error' };
-      if (w.makes && w.makes !== n.kind && !(w.for ?? []).includes(n.kind)) add(n.id, `"${text}" does nothing here, because this shape is a ${kindName}. Give it its own shape.`, where);
-      else if (w.for && !w.for.includes(n.kind)) add(n.id, `"${text}" does nothing on a ${kindName}. It works on: ${w.for.map((k) => KINDS[k]?.name ?? k).join(', ')}.`, where);
+      if (w.makes && w.makes !== n.kind && !(w.for ?? []).includes(n.kind)) add(n.id, `"${text}" does nothing here, because this shape is ${kindName}. Give it its own shape.`, where);
+      else if (w.for && !w.for.includes(n.kind)) add(n.id, `"${text}" does nothing on ${kindName}. It works on: ${w.for.map((k) => KINDS[k]?.name ?? k).join(', ')}.`, where);
     }
   }
 }
@@ -345,15 +348,17 @@ function lintFlow(nodes, edges, add) {
     if (named.length && (sum > 100.01 || (named.length === out.length && sum < 99.99))) add(n.id, `The arrows out of ${n.name || 'this shape'} add up to ${Math.round(sum)}%, so shares are scaled to fit.`, { level: 'note' });
     if (n.kind === 'merge' && !list.some((m) => m.kind === 'split')) add(n.id, 'A merge waits for the parts of a split, and this drawing has no split.', { level: 'note' });
     if (n.kind === 'chart' && !n.watching.length) add(n.id, 'Draw an arrow from this chart to the shape you want to watch.', { level: 'note' });
+    if (n.kind === 'chart' && n.params.chartOf) for (const name of namesIn(n.params.chartOf)) if (!METRICS.includes(name)) add(n.id, `A chart can't read "${name}". It can read: ${METRICS.join(', ')}.`, { level: 'note' });
     if (n.kind === 'workers' && n.params.workers === 0) add(n.id, 'Zero workers never finish anything.', { level: 'note' });
   }
   for (const e of edges.values()) {
     if (e.watch) continue;
     if (e.from && !e.to || !e.from && e.to) add(e.id, 'This arrow is not attached at both ends, so nothing travels along it.', { level: 'note' });
     const from = nodes.get(e.from);
-    if (e.exit === 'hit' || e.exit === 'miss') { if (from && from.kind !== 'cache') add(e.id, `"${e.exit}" only means something on an arrow out of a cache.`); }
-    if (e.exit === 'over' && from && from.kind !== 'limiter') add(e.id, '"over" only means something on an arrow out of a rate limit.');
-    if (e.after !== undefined && from && from.kind !== 'queue' && from.kind !== 'workers') add(e.id, `Only work waiting in a queue or a line can time out, so "${e.label.trim()}" does nothing here.`);
+    // The table says which shapes each arrow word can leave from.
+    for (const hit of e.hits) {
+      if (hit.word.from && from && !hit.word.from.includes(from.kind)) add(e.id, `"${hit.text.trim()}" does nothing on an arrow out of ${KINDS[from.kind]?.phrase ?? from.kind}. It works on arrows out of: ${hit.word.from.map((k) => KINDS[k]?.name ?? k).join(', ')}.`);
+    }
     // `gold` on its own reads as a name, which is almost never what was meant.
     if (e.eventName && kindNames.has(e.eventName) && !e.when) add(e.id, `"${e.eventName}" is just a name here. To send only ${e.eventName} work this way, write "if ${e.eventName}".`, { suggestLine: `if ${e.eventName}` });
     if (e.when) for (const name of namesIn(e.when)) if (!['retries', 'age'].includes(name) && !kindNames.has(name)) add(e.id, `Nothing here is called "${name}". Work knows retries, age and any name from a mix word.`, { level: 'note' });

@@ -4,7 +4,7 @@
 // document.
 
 import { measure } from '/lib/stage.js';
-import { absPoints, boundaryHit, center, distanceToPath, isArrow, isShape, ownerOf, pathOf, pointAlong } from './graph.js';
+import { absPoints, aimOffset, boundaryHit, center, distanceToPath, isArrow, isShape, ownerOf, pathOf, pointAlong } from './graph.js';
 
 const GAP = 9;
 
@@ -174,6 +174,7 @@ function placeLabel(text, owner) {
   let y = owner.y + (owner.height - text.height) / 2;
   if (owner.type === 'rectangle' && text.verticalAlign === 'top') y = owner.y + 10;
   if (owner.type === 'rectangle' && text.verticalAlign === 'bottom') y = owner.y + owner.height - text.height - 10;
+  if (owner.type === 'ellipse' && text.verticalAlign === 'top') y = owner.y + owner.height * 0.2;
   return { ...text, x, y };
 }
 
@@ -221,3 +222,173 @@ export function addLabel(list, ownerId, words) {
   return [...out.slice(0, at + 1), text, ...out.slice(at + 1)];
 }
 
+// ---------------------------------------------------------------------------
+// Adding, deleting and copying. New elements carry every field Excalidraw writes, so
+// a saved file opens there as if it had been drawn there.
+
+let idCount = 0;
+const freshId = (prefix) => `${prefix}-${Date.now().toString(36)}${(idCount++).toString(36)}`;
+const seedOf = () => 1 + Math.floor(Math.random() * 2000000000);
+
+const COMMON = () => ({ angle: 0, fillStyle: 'solid', strokeWidth: 2, strokeStyle: 'solid', roughness: 1, opacity: 100, groupIds: [], frameId: null, seed: seedOf(), version: 1, versionNonce: seedOf(), isDeleted: false, boundElements: [], updated: 1, link: null, locked: false });
+
+export const TONES = {
+  blue: ['#1864ab', '#d0ebff'], amber: ['#a35200', '#fff3bf'], green: ['#2b8a3e', '#d3f9d8'], rose: ['#c92a2a', '#ffe3e3'], gray: ['#343a40', '#f1f3f5'], none: ['#1B2547', 'transparent'],
+};
+
+/** A shape for a palette part. Returns the new list and the shape's id. */
+export function addPart(list, part, x, y) {
+  const id = freshId(part.id);
+  const [stroke, fill] = TONES[part.tone] ?? TONES.gray;
+  const shape = { ...COMMON(), id, type: part.type, x: x - part.w / 2, y: y - part.h / 2, width: part.w, height: part.h, strokeColor: stroke, backgroundColor: fill, roundness: part.type === 'rectangle' ? { type: 3 } : { type: 2 } };
+  let out = [...list, shape];
+  if (part.label) {
+    out = addLabel(out, id, part.label);
+    if (part.valign === 'top') out = out.map((el) => (el.containerId === id ? placeLabel({ ...el, verticalAlign: 'top' }, shape) : el));
+  }
+  return { list: out, id };
+}
+
+/** An empty shape with no label yet, for a double-click on nothing. */
+export function addBlank(list, x, y) {
+  return addPart(list, { id: 'shape', type: 'rectangle', tone: 'gray', w: 220, h: 110, label: '' }, x, y);
+}
+
+const arrowBase = (id, points, startId, endId) => {
+  const local = points.map(([x, y]) => [x - points[0][0], y - points[0][1]]);
+  const xs = local.map((p) => p[0]), ys = local.map((p) => p[1]);
+  return {
+    ...COMMON(), id, type: 'arrow', x: points[0][0], y: points[0][1], width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys), points: local,
+    strokeColor: '#1B2547', backgroundColor: 'transparent', roundness: points.length > 2 ? { type: 2 } : null, lastCommittedPoint: null, elbowed: false,
+    startBinding: startId ? { elementId: startId, focus: 0, gap: GAP } : null, endBinding: endId ? { elementId: endId, focus: 0, gap: GAP } : null, startArrowhead: null, endArrowhead: 'arrow',
+  };
+};
+
+const withBound = (list, ids, arrowId) => list.map((el) => (ids.includes(el.id) && !(el.boundElements ?? []).some((b) => b.id === arrowId) ? { ...el, boundElements: [...(el.boundElements ?? []), { id: arrowId, type: 'arrow' }] } : el));
+
+/** Draw an arrow between two shapes. Returns the new list and the arrow's id. */
+export function addArrow(list, fromId, toId) {
+  const id = freshId('arrow');
+  const shapes = shapeMap(list);
+  const from = shapes.get(fromId), to = shapes.get(toId);
+  if (fromId === toId) {
+    // An arrow from a shape to itself loops over the top.
+    const [cx] = center(from);
+    const reach = Math.min(from.width * 0.3, 70);
+    const top = from.y;
+    const points = [[cx - reach, top - GAP], [cx, top - 90], [cx + reach, top - GAP]];
+    const dir = [0, -1];
+    const loop = { ...arrowBase(id, points, fromId, toId), customData: { machine: { aim: { start: aimOffset(from, points[0], dir), end: aimOffset(from, points[2], [0, 1]) } } } };
+    return { list: [...withBound(list, [fromId], id), route(loop, shapes)], id };
+  }
+  const arrow = arrowBase(id, [center(from), center(to)], fromId, toId);
+  const out = [...withBound(list, [fromId, toId], id), arrow];
+  const placed = clearRoute(arrow, out);
+  return { list: out.map((el) => (el.id === id ? placed : el)), id };
+}
+
+/** An arrow from nothing to a shape: where a state machine begins. */
+export function addStartArrow(list, toId) {
+  const id = freshId('start');
+  const shapes = shapeMap(list);
+  const to = shapes.get(toId);
+  const [cx, cy] = center(to);
+  const arrow = route(arrowBase(id, [[to.x - 120, cy], [cx, cy]], null, toId), shapes);
+  return { list: [...withBound(list, [toId], id), arrow], id };
+}
+
+const isAttached = (arrow, id) => arrow.startBinding?.elementId === id || arrow.endBinding?.elementId === id;
+
+/** Delete a shape or arrow, with its label. A shape's arrows go too. */
+export function removeElement(list, id) {
+  const target = list.find((el) => el.id === id);
+  if (!target) return list;
+  const gone = new Set([id]);
+  if (isShape(target)) for (const el of list) if (isArrow(el) && isAttached(el, id)) gone.add(el.id);
+  for (const el of list) if (el.type === 'text' && gone.has(ownerOf(el))) gone.add(el.id);
+  return list.filter((el) => !gone.has(el.id)).map((el) => {
+    if (!el.boundElements?.some((b) => gone.has(b.id))) return el;
+    return { ...el, boundElements: el.boundElements.filter((b) => !gone.has(b.id)) };
+  });
+}
+
+/** Put a new part in the middle of an arrow, which becomes two arrows. */
+export function insertOnArrow(list, arrowId, part) {
+  const arrow = list.find((el) => el.id === arrowId);
+  const [x, y] = pointAlong(pathOf(arrow), 0.5);
+  const { list: withPart, id } = addPart(list, part, x, y);
+  const toId = arrow.endBinding?.elementId ?? null;
+  let out = rebind(withPart, withPart.find((el) => el.id === arrowId), 'end', id);
+  // The arrow's label stays on the part before the new shape.
+  if (toId) out = addArrow(out, id, toId).list;
+  return { list: out, id };
+}
+
+/** Copy a shape and its label, a little to the side. Arrows are left behind. */
+export function duplicate(list, id) {
+  const shape = list.find((el) => el.id === id);
+  if (!shape || !isShape(shape)) return { list, id };
+  const copyId = freshId(shape.id);
+  const offset = 36;
+  const labels = list.filter((el) => el.type === 'text' && ownerOf(el) === id);
+  const textCopies = labels.map((t) => {
+    const textId = freshId(`${copyId}-t`);
+    return { ...t, id: textId, x: t.x + offset, y: t.y + offset, containerId: t.containerId ? copyId : t.containerId, seed: seedOf(), customData: t.customData?.machine?.owner ? { ...t.customData, machine: { ...t.customData.machine, owner: copyId } } : t.customData };
+  });
+  const copy = { ...shape, id: copyId, x: shape.x + offset, y: shape.y + offset, seed: seedOf(), boundElements: textCopies.filter((t) => t.containerId).map((t) => ({ id: t.id, type: 'text' })) };
+  return { list: [...list, copy, ...textCopies], id: copyId };
+}
+
+/** Replace part of an owner's label, wherever it is. Used for fixes and for changing a number. */
+export function replaceInLabel(list, ownerId, oldWords, newWords) {
+  const text = list.find((el) => el.type === 'text' && ownerOf(el) === ownerId && el.text.includes(oldWords));
+  if (!text) return list;
+  return setText(list, text.id, text.text.replace(oldWords, newWords));
+}
+
+/** Add a line to an owner's label, making the label if it has none. */
+export function appendToLabel(list, ownerId, words) {
+  const text = list.find((el) => el.type === 'text' && ownerOf(el) === ownerId);
+  if (!text) return addLabel(list, ownerId, words);
+  return setText(list, text.id, `${text.text}\n${words}`);
+}
+
+/** Set an owner's whole label. */
+export function setLabel(list, ownerId, words) {
+  const text = list.find((el) => el.type === 'text' && ownerOf(el) === ownerId);
+  if (text) return setText(list, text.id, words);
+  return words.trim() ? addLabel(list, ownerId, words) : list;
+}
+
+const NOTE_DEFAULTS = { fontSize: 26, fontFamily: 5, textAlign: 'left', verticalAlign: 'top', autoResize: true, lineHeight: 1.25, containerId: null, strokeColor: '#7A776E', backgroundColor: 'transparent', roundness: null };
+
+/** Free text that does nothing, marked so it never attaches to what it sits beside. */
+export function addNote(list, x, y, words = 'a note') {
+  const id = freshId('note');
+  const text = sized({ ...COMMON(), ...NOTE_DEFAULTS, id, type: 'text', x, y, width: 0, height: 0, boundElements: null, text: words, originalText: words, customData: { machine: { note: true } } });
+  return { list: [...list, text], id };
+}
+
+/** Move free text. */
+export const moveNote = (list, id, dx, dy) => list.map((el) => (el.id === id ? { ...el, x: el.x + dx, y: el.y + dy } : el));
+
+/** Change a shape's size from its bottom right corner. Its label and arrows follow. */
+export function resizeShape(list, id, width, height) {
+  const target = list.find((el) => el.id === id);
+  if (!target) return list;
+  const next = { ...target, width: Math.max(70, width), height: Math.max(44, height) };
+  let out = list.map((el) => {
+    if (el.id === id) return next;
+    if (el.type === 'text' && el.containerId === id) return placeLabel(el, next);
+    // Free text inside it keeps its place in the middle of the shape.
+    if (el.type === 'text' && ownerOf(el) === id) return { ...el, x: el.x + (next.width - target.width) / 2, y: el.y + (next.height - target.height) / 2 };
+    return el;
+  });
+  const shapes = shapeMap(out);
+  for (const before of out.filter(isArrow)) {
+    if (!isAttached(before, id)) continue;
+    const after = route(before, shapes);
+    out = carryLabels(out.map((el) => (el.id === after.id ? after : el)), before, after);
+  }
+  return out;
+}

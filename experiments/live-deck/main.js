@@ -6,9 +6,11 @@ const room = params.get('room') || 'main';
 const info = await (await fetch(`/live-deck/info?room=${encodeURIComponent(room)}`)).json();
 
 let role = params.get('role') ?? (info.canPresent ? 'presenter' : 'phone');
-if (!['presenter', 'audience', 'phone'].includes(role)) role = 'audience';
+if (!['presenter', 'audience', 'phone', 'replay'].includes(role)) role = 'audience';
 if (role === 'presenter' && !info.canPresent) role = 'audience';
 
 document.body.classList.add(role);
-const start = role === 'phone' ? (await import('./phone.js')).startPhone : (await import('./screen.js')).startScreen;
+const start = role === 'phone' ? (await import('./phone.js')).startPhone
+  : role === 'replay' ? (await import('./replay.js')).startReplay
+  : (await import('./screen.js')).startScreen;
 window.app = await start({ role, room, info });

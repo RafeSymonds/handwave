@@ -16,12 +16,15 @@
 <aside id="panel" hidden>
   <p id="p-status"></p>
   <p id="p-position"></p>
+  <p id="p-next" hidden></p>
   <p id="p-offscript" hidden></p>
+  <section id="p-activity" hidden></section>
   <p id="p-notes"></p>
   <h2>Questions</h2>
   <p id="p-empty">None yet.</p>
   <ul id="p-questions"></ul>
   <h2>Keys</h2>
+  <p id="p-pointer" hidden>On this slide a drag draws, even over boxes. Shift-drag moves a box.</p>
   <dl>
     <dt>→ or Space</dt><dd>next</dd>
     <dt>←</dt><dd>back</dd>
@@ -31,9 +34,22 @@
     <dt>Shift-drag</dt><dd>draw over things</dd>
   </dl>
   <p><a id="p-audience" target="_blank" rel="noopener">Open the audience screen</a></p>
+  <p><a id="p-replay" target="_blank" rel="noopener">Open the replay</a></p>
 </aside>
 
 <p id="pill" hidden></p>
+<p id="turn">Turn your phone upright.</p>
+
+<div id="scrub" hidden>
+  <button id="r-play" type="button">Play</button>
+  <div id="r-track">
+    <div id="r-marks"></div>
+    <input id="r-time" type="range" min="0" max="1000" value="0" step="1" aria-label="Time in the talk">
+  </div>
+  <p id="r-label"></p>
+  <a id="r-save">Save</a>
+  <label id="r-open">Open a saved talk<input id="r-file" type="file" accept=".json,application/json" hidden></label>
+</div>
 
 <form id="ask" hidden autocomplete="off">
   <label for="ask-text">Raise a question</label>

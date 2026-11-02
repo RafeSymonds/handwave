@@ -31,13 +31,13 @@ export class Gallery {
     this.slide = slide;
     this.host = host;
     this.next = 1;
-    this.byPhone = new Map();   // phone id -> {waiting: drawing id or null, shown: [ids], last: seconds}
+    this.byPhone = new Map();   // phone id -> {waiting: drawing id or null, said: the last decision, last: seconds}
     this.owners = new Map();    // drawing id -> phone id
   }
 
   _phone(id) {
     let phone = this.byPhone.get(id);
-    if (!phone) { phone = { waiting: null, shown: new Set(), said: null, last: -Infinity }; this.byPhone.set(id, phone); }
+    if (!phone) { phone = { waiting: null, said: null, last: -Infinity }; this.byPhone.set(id, phone); }
     return phone;
   }
 
@@ -70,18 +70,17 @@ export class Gallery {
 
   review(op) {
     const slide = this.slide.id;
-    const owner = this.host.state;
+    const { state } = this.host;
     if (op.t === 'gal-ok' || op.t === 'gal-no') {
-      const item = owner.review[slide]?.find((k) => k.id === op.id);
+      const item = state.review[slide]?.find((k) => k.id === op.id);
       if (!item) return false;
       this.host.toPresenter({ t: 'gal-out', slide, id: op.id });
       const phone = this._phone(this.owners.get(op.id));
       phone.waiting = null;
       if (op.t === 'gal-ok') {
         phone.said = 'shown';
-        phone.shown.add(op.id);
-        const wall = owner.live[slide]?.shown ?? [];
-        // The wall holds a fixed number. The oldest makes way, and its phone can tell.
+        const wall = state.live[slide]?.shown ?? [];
+        // The wall holds a fixed number. The oldest makes way, and stays in the replay.
         if (wall.length >= LIMITS.onWall) this.host.emit({ t: 'gal-pull', slide, id: wall[0].id });
         this.host.emit({ t: 'gal-show', slide, item });
       } else phone.said = 'declined';
@@ -89,10 +88,8 @@ export class Gallery {
       return true;
     }
     if (op.t === 'gal-pull') {
-      if (!owner.live[slide]?.shown?.some((k) => k.id === op.id)) return false;
-      const phone = this._phone(this.owners.get(op.id));
-      phone.shown.delete(op.id);
-      phone.said = 'removed';
+      if (!state.live[slide]?.shown?.some((k) => k.id === op.id)) return false;
+      this._phone(this.owners.get(op.id)).said = 'removed';
       this.host.emit({ t: 'gal-pull', slide, id: op.id, retract: true });
       return true;
     }

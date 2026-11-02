@@ -7,12 +7,14 @@ body.presenter canvas#stage { flex: 1 1 0; width: 0; min-width: 0; height: 100vh
   flex: 0 0 340px; box-sizing: border-box; height: 100vh; overflow-y: auto; padding: 18px 20px;
   background: #f8f9fa; border-left: 2px solid #ced4da; color: #1B2547; font: 19px/1.35 Excalifont, sans-serif;
 }
-#panel[hidden], #ask[hidden], #pill[hidden], #p-offscript[hidden], #p-empty[hidden] { display: none; }
+#panel[hidden], #ask[hidden], #pill[hidden], #p-offscript[hidden], #p-empty[hidden], #p-activity[hidden], #scrub[hidden], #p-next[hidden], #p-pointer[hidden] { display: none; }
 #panel h2 { margin: 20px 0 6px; font-size: 19px; font-weight: normal; color: #7A776E; }
 #panel p { margin: 0 0 10px; }
 #p-status[data-status="live"] { color: #2b8a3e; }
 #p-status[data-status="down"], #p-status[data-status="refused"] { color: #c92a2a; }
 #p-position { color: #7A776E; }
+#p-next { padding: 8px 10px; background: #d3f9d8; color: #2b8a3e; border: 2px solid #2b8a3e; border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; }
+#p-pointer { color: #a35200; font-size: 16px; }
 #p-offscript { padding: 8px 10px; background: #ffe3e3; color: #c92a2a; border: 2px solid #c92a2a; border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; }
 #p-notes { min-height: 5.5em; }
 #p-questions { list-style: none; margin: 0; padding: 0; }
@@ -28,15 +30,54 @@ body.presenter canvas#stage { flex: 1 1 0; width: 0; min-width: 0; height: 100vh
 #panel dd { margin: 0; }
 #panel a { color: #1864ab; }
 
+/* The presenter's review of what a phone sent. */
+#p-activity .warn { color: #c92a2a; font-size: 16px; }
+#p-activity .review-card { padding: 6px; background: #fff; border: 2px solid #1B2547; }
+#p-activity .review-card canvas { display: block; }
+#p-activity .actions { display: flex; gap: 8px; margin-top: 6px; }
+#p-activity .actions button, #p-activity .thumb-button {
+  font: inherit; cursor: pointer; background: #fff; color: #1B2547; border: 2px solid #1B2547;
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; padding: 4px 10px; font-size: 17px;
+}
+#p-activity { margin-bottom: 12px; }
+#p-activity button[data-action=reveal] { background: #fff3bf; color: #a35200; border-color: #a35200; }
+#p-activity button[data-action=approve] { background: #d3f9d8; color: #2b8a3e; border-color: #2b8a3e; }
+#p-activity button[data-action=reject] { background: #ffe3e3; color: #c92a2a; border-color: #c92a2a; }
+#p-activity .thumbs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+#p-activity .thumbs canvas { display: block; border: 1px solid #ced4da; }
+#p-activity .thumb-button { padding: 2px; border-radius: 0; }
+
+/* Replay: the drawing above, a timeline below. */
+html:has(body.replay), body.replay { height: 100vh; }
+body.replay { display: flex; flex-direction: column; }
+body.replay canvas#stage { flex: 1 1 0; width: 100vw; height: 0; min-height: 0; }
+#scrub { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 10px 18px; background: #f8f9fa; border-top: 2px solid #ced4da; color: #1B2547; font: 19px Excalifont, sans-serif; }
+#scrub button, #scrub a, #scrub label { font: inherit; padding: 4px 14px; color: #1B2547; background: #fff; border: 2px solid #1B2547; border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; cursor: pointer; text-decoration: none; }
+#r-track { flex: 1 1 400px; position: relative; padding-top: 22px; }
+#r-time { width: 100%; margin: 0; display: block; }
+#r-marks { position: absolute; left: 8px; right: 8px; top: 0; height: 20px; }
+#r-marks span { position: absolute; top: 0; font-size: 15px; color: #7A776E; transform: translateX(-50%); }
+#r-marks span.live { color: #a35200; }
+#r-label { margin: 0; min-width: 300px; }
+
 /* Audience: only shown while the connection is down. */
 #pill {
   position: fixed; top: 14px; right: 14px; margin: 0; padding: 6px 14px; background: #ffe3e3; color: #c92a2a;
   border: 2px solid #c92a2a; border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; font: 20px Excalifont, sans-serif;
 }
 
+/* A sideways phone. Not while typing, because an open keyboard also makes a page wide. */
+#turn { display: none; }
+@media (orientation: landscape) and (max-height: 500px) {
+  body.phone:not(:has(textarea:focus)) #turn {
+    display: flex; position: fixed; inset: 0; margin: 0; align-items: center; justify-content: center;
+    background: #ffffff; color: #1B2547; font: 32px Excalifont, sans-serif;
+  }
+}
+
 /* Phone: the drawing above, the question box below. */
 html:has(body.phone), body.phone { height: 100dvh; }
-body.phone { display: flex; flex-direction: column; }
+body.phone { display: flex; flex-direction: column; overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 body.phone canvas#stage { flex: 1 1 0; width: 100vw; height: 0; min-height: 0; }
 #ask { flex: none; box-sizing: border-box; width: 100%; padding: 8px 14px 12px; background: #f8f9fa; border-top: 2px solid #ced4da; color: #1B2547; font: 18px Excalifont, sans-serif; }
 #ask label { display: block; margin-bottom: 4px; color: #7A776E; }

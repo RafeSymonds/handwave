@@ -1,0 +1,11 @@
+{"t": 500, "delta": "{\"op\": \"focus\", \"id"}
+{"t": 540, "delta": "s\": [\"cache\", \"a5\"]}\n"}
+{"t": 580, "delta": "{\"op\": \"say\", \"text\": \"The cache sits with the resolver"}
+{"t": 620, "delta": " because every browser nearby asks the same resolver.\"}\n"}
+{"t": 660, "delta": "{\"op\": \"update\", \"id\": \""}
+{"t": 700, "delta": "cache\", \"tone\": \"amber\"}\n"}
+{"t": 740, "delta": "{\"op\": \"say\", \"text\": \"So one looku"}
+{"t": 780, "delta": "p saves the trip for all of them.\"}\n"}
+{"t": 820, "delta": "{\"op\": \"update\", \"id\": \"n1\", \"text\": \"One l"}
+{"t": 860, "delta": "ookup saves the trip for everyone nearby.\"}\n"}
+{"t": 950, "done": true}

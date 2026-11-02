@@ -1,0 +1,47 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>handwave: live deck</title>
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script type="importmap">
+{"imports": {
+  "roughjs": "/node_modules/roughjs/bundled/rough.esm.js",
+  "perfect-freehand": "/node_modules/perfect-freehand/dist/esm/index.mjs"
+}}
+</script>
+<link rel="stylesheet" href="/lib/page.css">
+<link rel="stylesheet" href="./live-deck.css">
+<canvas id="stage"></canvas>
+
+<aside id="panel" hidden>
+  <p id="p-status"></p>
+  <p id="p-position"></p>
+  <p id="p-offscript" hidden></p>
+  <p id="p-notes"></p>
+  <h2>Questions</h2>
+  <p id="p-empty">None yet.</p>
+  <ul id="p-questions"></ul>
+  <h2>Keys</h2>
+  <dl>
+    <dt>→ or Space</dt><dd>next</dd>
+    <dt>←</dt><dd>back</dd>
+    <dt>Esc</dt><dd>back to the script</dd>
+    <dt>Drag a thing</dt><dd>move it</dd>
+    <dt>Drag blank space</dt><dd>draw</dd>
+    <dt>Shift-drag</dt><dd>draw over things</dd>
+  </dl>
+  <p><a id="p-audience" target="_blank" rel="noopener">Open the audience screen</a></p>
+</aside>
+
+<p id="pill" hidden></p>
+
+<form id="ask" hidden autocomplete="off">
+  <label for="ask-text">Raise a question</label>
+  <div class="row">
+    <textarea id="ask-text" rows="2" maxlength="140" placeholder="Type it here"></textarea>
+    <button id="ask-send" type="submit">Send</button>
+  </div>
+  <p id="ask-status" aria-live="polite"></p>
+</form>
+
+<script type="module" src="./main.js"></script>

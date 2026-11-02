@@ -1,0 +1,1 @@
+{"duration": 14.185, "sentences": [{"text": "This is DNS, the Domain Name System, and this is the path of one lookup.", "start": 0.0, "end": 5.15}, {"text": "Your browser and a resolver ask the questions.", "start": 5.47, "end": 8.745}, {"text": "A root server, a TLD server and an authoritative server answer them.", "start": 9.065, "end": 14.065}]}

@@ -1,0 +1,107 @@
+{"t":940,"delta":"{\"op\":\"say\",\"text"}
+{"t":955,"delta":"\":\"The"}
+{"t":1283,"delta":" sky is blue because air sc"}
+{"t":1283,"delta":"atters blue s"}
+{"t":1283,"delta":"unlight much more str"}
+{"t":1283,"delta":"ongly than red s"}
+{"t":1284,"delta":"unlight.\"}\n{\""}
+{"t":1284,"delta":"op\":\"title\",\"text\":\""}
+{"t":1284,"delta":"Air scatters blue light"}
+{"t":1284,"delta":" the"}
+{"t":1284,"delta":" most\"}\n{\"op\":"}
+{"t":1296,"delta":"\"draw\",\"kind\":\""}
+{"t":1328,"delta":"ellipse\",\"id\":\""}
+{"t":1363,"delta":"sun\",\"col\":0,\""}
+{"t":1688,"delta":"row\":1,\"label\":\""}
+{"t":1688,"delta":"Sun"}
+{"t":1688,"delta":"light\",\"tone\":\"am"}
+{"t":1688,"delta":"ber\"}\n{\"op\":"}
+{"t":1688,"delta":"\"draw\",\"kind\":\""}
+{"t":1688,"delta":"box\",\"id\":\"air\",\"col"}
+{"t":1688,"delta":"\":2,\"row\":1,"}
+{"t":1688,"delta":"\"label\":\"Air molec"}
+{"t":1688,"delta":"ules\",\"tone\":\"g"}
+{"t":1702,"delta":"ray\"}\n{\"op\":"}
+{"t":1732,"delta":"\"draw\",\"kind\":\""}
+{"t":1765,"delta":"arrow\",\"id\":\"a"}
+{"t":2036,"delta":"1\",\"from\":\"sun\",\""}
+{"t":2036,"delta":"to\":\"air\",\"label\":\""}
+{"t":2036,"delta":"all"}
+{"t":2036,"delta":" colors\",\"tone\":\"am"}
+{"t":2036,"delta":"ber\"}\n{\"op\":"}
+{"t":2037,"delta":"\"say\",\"text\":\"S"}
+{"t":2037,"delta":"unlight loo"}
+{"t":2037,"delta":"ks white, but"}
+{"t":2063,"delta":" it is a mix of every"}
+{"t":2095,"delta":" color"}
+{"t":2130,"delta":".\""}
+{"t":2162,"delta":"}\n{\"op\":\"dra"}
+{"t":2386,"delta":"w\",\"kind\":\"note\",\""}
+{"t":2386,"delta":"id\":\"n1\",\"col"}
+{"t":2386,"delta":"\":0,\"row\":0,"}
+{"t":2386,"delta":"\"cols\":2,\"text"}
+{"t":2386,"delta":"\":\"White"}
+{"t":2386,"delta":" light is a mix of colors"}
+{"t":2396,"delta":"\"}\n{\"op\":\""}
+{"t":2430,"delta":"say\",\"text\":\"Blue"}
+{"t":2462,"delta":" has"}
+{"t":2494,"delta":" a"}
+{"t":2529,"delta":" short wavelength, so air"}
+{"t":2564,"delta":" molecules b"}
+{"t":2733,"delta":"ounce it around"}
+{"t":2733,"delta":" far more than red.\"}\n{"}
+{"t":2733,"delta":"\"op\":\"draw\",\"k"}
+{"t":2733,"delta":"ind\":\"box"}
+{"t":2733,"delta":"\",\"id\":\"blue\",\"col"}
+{"t":2761,"delta":"\":2,\"row\":2,"}
+{"t":2796,"delta":"\"label\":\"Blue sc"}
+{"t":2829,"delta":"atters\",\"tone\":\"bl"}
+{"t":2862,"delta":"ue\"}\n{\"op\":"}
+{"t":2897,"delta":"\"draw\",\"kind\":\""}
+{"t":2929,"delta":"arrow\",\"id\":\"a"}
+{"t":2964,"delta":"2\",\"from\":\"air\",\"to"}
+{"t":3133,"delta":"\":\"blue\",\"label\":\""}
+{"t":3134,"delta":"strongly\",\""}
+{"t":3134,"delta":"tone\":\"blue\"}"}
+{"t":3134,"delta":"\n{\"op\":\"say\",\""}
+{"t":3134,"delta":"text\":\"Red"}
+{"t":3162,"delta":" has"}
+{"t":3199,"delta":" a long wavelength, so"}
+{"t":3228,"delta":" it m"}
+{"t":3263,"delta":"ostly passes straight through.\""}
+{"t":3297,"delta":"}\n{\"op\":\"dra"}
+{"t":3330,"delta":"w\",\"kind\":\"box\",\""}
+{"t":3362,"delta":"id\":\"red\",\"col\":3"}
+{"t":3495,"delta":",\"row\":1,\"label"}
+{"t":3495,"delta":"\":\"Red passes\",\"t"}
+{"t":3495,"delta":"one\":\"rose\"}"}
+{"t":3495,"delta":"\n{\"op\":\"draw\",\""}
+{"t":3529,"delta":"kind\":\"arrow\",\""}
+{"t":3562,"delta":"id\":\"a3\",\"from\":"}
+{"t":3596,"delta":"\"air\",\"to\":\"red\",\""}
+{"t":3630,"delta":"label\":\"bar"}
+{"t":3663,"delta":"ely sc"}
+{"t":3702,"delta":"atters\",\"tone\":\"r"}
+{"t":3734,"delta":"ose\"}\n{\"op\":"}
+{"t":3762,"delta":"\"say\",\"text\":\"That sc"}
+{"t":3844,"delta":"attered blue light re"}
+{"t":3844,"delta":"aches your eyes from every"}
+{"t":3865,"delta":" direction,"}
+{"t":3899,"delta":" so the wh"}
+{"t":3930,"delta":"ole sky gl"}
+{"t":3961,"delta":"ows blue.\"}\n{\""}
+{"t":4000,"delta":"op\":\"draw\",\"kind"}
+{"t":4027,"delta":"\":\""}
+{"t":4066,"delta":"ellipse\",\"id\":\"e"}
+{"t":4100,"delta":"ye\",\"col\":2,\"row"}
+{"t":4133,"delta":"\":3,\"label\":\""}
+{"t":4164,"delta":"Your eye\",\"tone\":\""}
+{"t":4525,"delta":"green\"}\n{\"op\":"}
+{"t":4526,"delta":"\"draw\",\"kind\":\""}
+{"t":4526,"delta":"arrow\",\"id\":\"a"}
+{"t":4526,"delta":"4\",\"from\":\"blue\",\""}
+{"t":4526,"delta":"to\":\"eye\",\"label"}
+{"t":4526,"delta":"\":\"from ever"}
+{"t":4526,"delta":"ywhere\",\"tone\":\""}
+{"t":4526,"delta":"green\"}"}
+{"t":4554,"done":true}

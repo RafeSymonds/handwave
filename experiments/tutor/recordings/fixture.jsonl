@@ -1,0 +1,35 @@
+{"t": 900, "delta": "{\"op\": \"say\", \"text\": \"A browser finds a website by"}
+{"t": 960, "delta": " asking a resolver, which asks a chain of servers.\"}\n"}
+{"t": 1020, "delta": "{\"op\": \"title\", \"text\": \"A lo"}
+{"t": 1080, "delta": "okup is a chain of questions\"}\n"}
+{"t": 1140, "delta": "{\"op\": \"draw\", \"kind\": \"box\", \"id\": \"browser\", \"col"}
+{"t": 1200, "delta": "\": 0, \"row\": 1, \"label\": \"Browser\", \"tone\": \"blue\"}\n"}
+{"t": 1260, "delta": "{\"op\": \"draw\", \"kind\": \"box\", \"id\": \"resolver\", \"col"}
+{"t": 1320, "delta": "\": 1, \"row\": 1, \"label\": \"Resolver\", \"tone\": \"blue\"}\n"}
+{"t": 1380, "delta": "{\"op\": \"draw\", \"kind\": \"arrow\", \"id\": \"a1\", \"from\": \"browser"}
+{"t": 1440, "delta": "\", \"to\": \"resolver\", \"label\": \"example.com?\", \"tone\": \"blue\"}\n"}
+{"t": 1500, "delta": "{\"op\": \"say\", \"text\": \"The resolver starts at a ro"}
+{"t": 1560, "delta": "ot server, which points it to the dot com server.\"}\n"}
+{"t": 1620, "delta": "{\"op\": \"draw\", \"kind\": \"box\", \"id\": \"root\", \"col\": "}
+{"t": 1680, "delta": "3, \"row\": 0, \"label\": \"Root server\", \"tone\": \"gray\"}\n"}
+{"t": 1740, "delta": "{\"op\": \"draw\", \"kind\": \"arrow\", \"id\": \"a2\", \"from\": \"resol"}
+{"t": 1800, "delta": "ver\", \"to\": \"root\", \"label\": \"who knows?\", \"tone\": \"blue\"}\n"}
+{"t": 1860, "delta": "{\"op\": \"say\", \"text\": \"The dot com server n"}
+{"t": 1920, "delta": "ames the one server that knows the answer.\"}\n"}
+{"t": 1980, "delta": "{\"op\": \"draw\", \"kind\": \"box\", \"id\": \"tld\", \"col\": 3,"}
+{"t": 2040, "delta": " \"row\": 1, \"label\": \"Dot com server\", \"tone\": \"gray\"}\n"}
+{"t": 2100, "delta": "{\"op\": \"draw\", \"kind\": \"arrow\", \"id\": \"a3\", \"from\": \"res"}
+{"t": 2160, "delta": "olver\", \"to\": \"tld\", \"label\": \"ask next\", \"tone\": \"blue\"}\n"}
+{"t": 2220, "delta": "{\"op\": \"say\", \"text\": \"That server gives the addr"}
+{"t": 2280, "delta": "ess, and the resolver keeps a copy in its cache.\"}\n"}
+{"t": 2340, "delta": "{\"op\": \"draw\", \"kind\": \"box\", \"id\": \"auth\", \"col\": 3, \"r"}
+{"t": 2400, "delta": "ow\": 2, \"label\": \"Authoritative server\", \"tone\": \"gray\"}\n"}
+{"t": 2460, "delta": "{\"op\": \"draw\", \"kind\": \"arrow\", \"id\": \"a4\", \"from\": \"resolv"}
+{"t": 2520, "delta": "er\", \"to\": \"auth\", \"label\": \"the address\", \"tone\": \"green\"}\n"}
+{"t": 2580, "delta": "{\"op\": \"draw\", \"kind\": \"box\", \"id\": \"cache\", \"col"}
+{"t": 2640, "delta": "\": 1, \"row\": 3, \"label\": \"Cache\", \"tone\": \"green\"}\n"}
+{"t": 2700, "delta": "{\"op\": \"draw\", \"kind\": \"arrow\", \"id\": \"a5\", \"from\": \"resolve"}
+{"t": 2760, "delta": "r\", \"to\": \"cache\", \"label\": \"keeps a copy\", \"tone\": \"green\"}\n"}
+{"t": 2820, "delta": "{\"op\": \"draw\", \"kind\": \"note\", \"id\": \"n1\", \"col\": 2, \"row\": "}
+{"t": 2880, "delta": "3, \"cols\": 2, \"text\": \"The next lookup stops at the cache.\"}\n"}
+{"t": 2990, "done": true}

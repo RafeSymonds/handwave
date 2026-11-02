@@ -1,0 +1,97 @@
+{"t":1140,"delta":"{"}
+{"t":1166,"delta":"\"op\":\"say\",\"text\":"}
+{"t":1333,"delta":"\"Sunlight has"}
+{"t":1333,"delta":" every"}
+{"t":1342,"delta":" color, and air"}
+{"t":1342,"delta":" sc"}
+{"t":1342,"delta":"atters blue light"}
+{"t":1342,"delta":" far"}
+{"t":1342,"delta":" more than red.\""}
+{"t":1342,"delta":"}\n{\"op\":\"title"}
+{"t":1347,"delta":"\",\"text\":\"Air"}
+{"t":1368,"delta":" scatters blue light most"}
+{"t":1390,"delta":"\"}\n{\"op\":\""}
+{"t":1412,"delta":"draw\",\"kind\":\"box"}
+{"t":1527,"delta":"\",\"id\":\"sun\",\"col"}
+{"t":1530,"delta":"\":0,\"row\":1"}
+{"t":1530,"delta":",\"label\":\"Sun"}
+{"t":1530,"delta":"light\",\"tone\":\"am"}
+{"t":1530,"delta":"ber\"}\n{\"op\":"}
+{"t":1535,"delta":"\"draw\",\"kind\":\""}
+{"t":1556,"delta":"box\",\"id\":\"air\",\"col"}
+{"t":1572,"delta":"\":2"}
+{"t":1601,"delta":",\"row\":1,\"label"}
+{"t":1614,"delta":"\":\"Air mol"}
+{"t":1634,"delta":"ecules\",\"tone\":\"bl"}
+{"t":1657,"delta":"ue\"}\n{\"op\":"}
+{"t":1727,"delta":"\"draw\",\"kind\":\""}
+{"t":1727,"delta":"arrow\",\"id\":\"a"}
+{"t":1727,"delta":"1\",\"from\":\"sun\",\""}
+{"t":1739,"delta":"to\":\"air\",\"label\":\""}
+{"t":1757,"delta":"hits\",\"tone\":\"bl"}
+{"t":1779,"delta":"ue\"}\n{\"op\":"}
+{"t":1804,"delta":"\"say\",\"text\":\"Bl"}
+{"t":1818,"delta":"ue light has"}
+{"t":1840,"delta":" shorter wa"}
+{"t":1868,"delta":"ves, so"}
+{"t":1879,"delta":" t"}
+{"t":1902,"delta":"iny air"}
+{"t":1928,"delta":" molecules bounce it all"}
+{"t":1945,"delta":" over"}
+{"t":1969,"delta":" the sky.\"}\n{\""}
+{"t":1982,"delta":"op\":\"draw\",\"kind"}
+{"t":2003,"delta":"\":\"box"}
+{"t":2022,"delta":"\",\"id\":\"bl"}
+{"t":2044,"delta":"ue\",\"col\":3,\"row"}
+{"t":2067,"delta":"\":2"}
+{"t":2084,"delta":",\"label\":\"Blue"}
+{"t":2104,"delta":" light\",\"tone\":\"blue"}
+{"t":2125,"delta":"\"}\n{\"op\":\""}
+{"t":2145,"delta":"draw\",\"kind\":\"ar"}
+{"t":2165,"delta":"row\",\"id\":\"a2"}
+{"t":2192,"delta":"\",\"from\":\"air\",\"to\":"}
+{"t":2212,"delta":"\"blue\",\"label\":\"sc"}
+{"t":2228,"delta":"atters\",\"tone\":\"bl"}
+{"t":2249,"delta":"ue\"}\n{\"op\":"}
+{"t":2267,"delta":"\"say\",\"text\":\"Red"}
+{"t":2287,"delta":" light has"}
+{"t":2309,"delta":" long"}
+{"t":2331,"delta":"er waves, so it m"}
+{"t":2348,"delta":"ostly passes straight through to"}
+{"t":2369,"delta":"ward your"}
+{"t":2390,"delta":" eyes.\"}\n{\""}
+{"t":2411,"delta":"op\":\"draw\",\"kind"}
+{"t":2430,"delta":"\":\"box\",\"id\":\"red"}
+{"t":2451,"delta":"\",\"col\":1,\"row\":"}
+{"t":2471,"delta":"3,\"label\":\"Red"}
+{"t":2497,"delta":" light\",\"tone\":\"r"}
+{"t":2524,"delta":"ose\"}\n{\"op\":"}
+{"t":2547,"delta":"\"draw\",\"kind\":\""}
+{"t":2564,"delta":"note"}
+{"t":2575,"delta":"\",\"id\":\"n1"}
+{"t":2599,"delta":"\",\"col\":2,\"row\":"}
+{"t":2614,"delta":"3,\"cols\":2,"}
+{"t":2634,"delta":"\"text\":\"Red"}
+{"t":2654,"delta":" pass"}
+{"t":2675,"delta":"es m"}
+{"t":2695,"delta":"ostly straight through\"}"}
+{"t":2718,"delta":"\n{\"op\":\"say\",\"text"}
+{"t":2740,"delta":"\":\"So"}
+{"t":2759,"delta":" when"}
+{"t":2777,"delta":" you look up"}
+{"t":2797,"delta":","}
+{"t":2818,"delta":" sc"}
+{"t":2842,"delta":"attered bl"}
+{"t":2859,"delta":"ue light re"}
+{"t":2879,"delta":"aches your ey"}
+{"t":2902,"delta":"es from every direction.\"}"}
+{"t":2920,"delta":"\n{\"op\":\"draw\",\""}
+{"t":2943,"delta":"kind\":\"note\",\"id\":"}
+{"t":2960,"delta":"\"n2\",\"col\":0,"}
+{"t":2982,"delta":"\"row\":3"}
+{"t":3001,"delta":",\"cols\":1"}
+{"t":3022,"delta":",\"text\":\"Scatt"}
+{"t":3043,"delta":"ered blue f"}
+{"t":3064,"delta":"ills the"}
+{"t":3073,"delta":" sky\"}"}
+{"t":3104,"done":true}

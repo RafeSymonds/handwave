@@ -1,0 +1,9 @@
+{"t": 200, "delta": "{\"op\": \"say\", \"text\": \"A hash table turns a key into a slot number.\"}\n"}
+{"t": 230, "delta": "{\"op\": \"title\", \"text\": \"A key jumps straight to its slot\"}\n"}
+{"t": 260, "delta": "{\"op\": \"draw\", \"kind\": \"box\", \"id\": \"key\", \"col\": 0, \"row\": 0, \"label\": \"Key\", \"tone\": \"blue\"}\n"}
+{"t": 290, "delta": "{\"op\": \"draw\", \"kind\": \"cells\", \"id\": \"slots\", \"col\": 1, \"row\": 0, \"cols\": 3, \"values\": [\"\", \"meow\", \"\", \"\"], \"label\": \"slots\"}\n"}
+{"t": 320, "delta": "{\"op\": \"draw\", \"kind\": \"arrow\", \"id\": \"a1\", \"from\": \"key\", \"to\": \"slots.1\", \"label\": \"hash\", \"tone\": \"blue\"}\n"}
+{"t": 350, "delta": "{\"op\": \"draw\", \"kind\": \"box\", \"id\": \"value\", \"col\": 2, \"row\": 2, \"label\": \"Value\", \"tone\": \"green\"}\n"}
+{"t": 380, "delta": "{\"op\": \"draw\", \"kind\": \"arrow\", \"id\": \"a2\", \"from\": \"slots.2\", \"to\": \"value\", \"label\": \"returns\", \"tone\": \"green\"}\n"}
+{"t": 410, "delta": "{\"op\": \"draw\", \"kind\": \"arrow\", \"id\": \"a3\", \"from\": \"slots.0\", \"to\": \"slots.3\", \"label\": \"moved\", \"tone\": \"amber\"}\n"}
+{"t": 460, "done": true}

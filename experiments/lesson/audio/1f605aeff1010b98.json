@@ -1,0 +1,1 @@
+{"duration": 9.315, "sentences": [{"text": "Asking the root server would work, but the resolver would walk the whole chain again for an answer it already has.", "start": 0.0, "end": 6.95}, {"text": "That is a wasted trip.", "start": 7.27, "end": 9.195}]}

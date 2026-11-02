@@ -1,0 +1,114 @@
+{"t":940,"delta":"{\"op\":\"say\",\"text"}
+{"t":984,"delta":"\":\"A hash table stores"}
+{"t":1274,"delta":" values"}
+{"t":1274,"delta":" by key"}
+{"t":1274,"delta":", so you can"}
+{"t":1275,"delta":" find any"}
+{"t":1275,"delta":" of"}
+{"t":1275,"delta":" them alm"}
+{"t":1275,"delta":"ost instantly.\"}\n{"}
+{"t":1276,"delta":"\"op\":\"title\",\"text\":"}
+{"t":1276,"delta":"\"A"}
+{"t":1276,"delta":" hash table jumps stra"}
+{"t":1303,"delta":"ight to the"}
+{"t":1342,"delta":" value\"}\n{\"op\":"}
+{"t":1634,"delta":"\"draw\",\"kind\":\""}
+{"t":1634,"delta":"box\",\"id\":\"key\",\"col"}
+{"t":1634,"delta":"\":0,\"row\":1"}
+{"t":1634,"delta":",\"label\":\"Key:"}
+{"t":1634,"delta":" c"}
+{"t":1634,"delta":"at\",\"tone\":\"blue"}
+{"t":1634,"delta":"\"}\n{\"op\":\""}
+{"t":1635,"delta":"draw\",\"kind\":\"box"}
+{"t":1651,"delta":"\",\"id\":\"hash\",\"col"}
+{"t":1686,"delta":"\":1,\"row\":1,"}
+{"t":1723,"delta":"\"label\":\"Hash function"}
+{"t":1752,"delta":"\",\"tone\":\"amber\""}
+{"t":1987,"delta":"}\n{\"op\":\"dra"}
+{"t":1987,"delta":"w\",\"kind\":\"arr"}
+{"t":1987,"delta":"ow\",\"id\":\"a"}
+{"t":1987,"delta":"1\",\"from\":\"key\",\"to"}
+{"t":1987,"delta":"\":\"hash\",\"label\":\""}
+{"t":1988,"delta":"go"}
+{"t":1994,"delta":"es into"}
+{"t":2022,"delta":"\",\"tone\":\"blue\""}
+{"t":2056,"delta":"}\n{\"op\":\"say"}
+{"t":2089,"delta":"\",\"text\":\"A"}
+{"t":2121,"delta":" hash function turns the"}
+{"t":2153,"delta":" key into a number,"}
+{"t":2328,"delta":" which"}
+{"t":2328,"delta":" pic"}
+{"t":2328,"delta":"ks a slot.\""}
+{"t":2328,"delta":"}\n{\"op\":\"dra"}
+{"t":2328,"delta":"w\",\"kind\":\"cells"}
+{"t":2356,"delta":"\",\"id\":\"slots\",\"col"}
+{"t":2386,"delta":"\":2"}
+{"t":2419,"delta":",\"row\":1,\"c"}
+{"t":2460,"delta":"ols\":2,\"values"}
+{"t":2494,"delta":"\":[\""}
+{"t":2517,"delta":"\",\""}
+{"t":2550,"delta":"me"}
+{"t":2681,"delta":"ow\"],\"label\":\"sl"}
+{"t":2681,"delta":"ots\"}\n{\"op\":"}
+{"t":2682,"delta":"\"draw\",\"kind\":\""}
+{"t":2708,"delta":"arrow\",\"id\":\"a"}
+{"t":2737,"delta":"2\",\"from\":\"hash\",\""}
+{"t":2756,"delta":"to\":\"slots."}
+{"t":2793,"delta":"1\",\"label\":\"slot "}
+{"t":2825,"delta":"1\",\"tone\":\"am"}
+{"t":2854,"delta":"ber\"}\n{\"op\":"}
+{"t":2892,"delta":"\"say\",\"text\":\"Because"}
+{"t":2919,"delta":" the number"}
+{"t":2953,"delta":" points"}
+{"t":3027,"delta":" right"}
+{"t":3028,"delta":" at the slot, lookup"}
+{"t":3052,"delta":" does"}
+{"t":3086,"delta":" not search"}
+{"t":3117,"delta":" through"}
+{"t":3153,"delta":" every item.\"}\n{\"op"}
+{"t":3185,"delta":"\":\"draw\",\"kind\":"}
+{"t":3217,"delta":"\"box"}
+{"t":3251,"delta":"\",\"id\":\"value\",\"col\":"}
+{"t":3284,"delta":"3"}
+{"t":3317,"delta":",\"row\":2,\"label"}
+{"t":3350,"delta":"\":\"Value:"}
+{"t":3393,"delta":" meow\",\"tone\":\"green"}
+{"t":3417,"delta":"\"}\n{\"op\":\""}
+{"t":3452,"delta":"draw\",\"kind\":\"ar"}
+{"t":3486,"delta":"row\",\"id\":\"a3"}
+{"t":3518,"delta":"\",\"from\":\"slots.1"}
+{"t":3551,"delta":"\",\"to\":\"value\",\"label\":"}
+{"t":3586,"delta":"\"returns\",\"tone\":\""}
+{"t":3620,"delta":"green\"}\n{\"op\":"}
+{"t":3652,"delta":"\"say\",\"text\":\"S"}
+{"t":3686,"delta":"ometimes two ke"}
+{"t":3719,"delta":"ys land"}
+{"t":3753,"delta":" in"}
+{"t":3786,"delta":" the same slot, which"}
+{"t":3818,"delta":" is called a collision.\"}"}
+{"t":3852,"delta":"\n{\"op\":\"draw\",\""}
+{"t":3886,"delta":"kind\":\"box\",\"id\":"}
+{"t":3918,"delta":"\"key"}
+{"t":3955,"delta":"2\",\"col\":1"}
+{"t":3986,"delta":",\"row\":3"}
+{"t":4020,"delta":",\"label\":\"Key:"}
+{"t":4053,"delta":" dog\",\"tone\":\"r"}
+{"t":4087,"delta":"ose\"}\n{\"op\":"}
+{"t":4119,"delta":"\"draw\",\"kind\":\""}
+{"t":4154,"delta":"arrow\",\"id\":\"a"}
+{"t":4187,"delta":"4\",\"from\":\""}
+{"t":4219,"delta":"key2\",\"to\":\"sl"}
+{"t":4254,"delta":"ots.1\",\"label\":\"coll"}
+{"t":4286,"delta":"ision\",\"t"}
+{"t":4320,"delta":"one\":\"rose\",\"dash"}
+{"t":4352,"delta":"ed\":true}\n{\"op"}
+{"t":4388,"delta":"\":\"say\",\"text\":\"The"}
+{"t":4432,"delta":" table then keeps both items in"}
+{"t":4454,"delta":" that slot, and"}
+{"t":4487,"delta":" lookups stay fast on"}
+{"t":4521,"delta":" average.\"}"}
+{"t":4556,"delta":"\n{\"op\":\"focus\",\""}
+{"t":4618,"delta":"ids\":[\"sl"}
+{"t":4619,"delta":"ots\",\"key2\",\"a"}
+{"t":4636,"delta":"4\"]}"}
+{"t":4667,"done":true}

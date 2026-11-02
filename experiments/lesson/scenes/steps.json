@@ -1,0 +1,30 @@
+{
+  "title-card": [
+    ["frame", "title", "series"]
+  ],
+  "lookup": [
+    ["frame", "browser", "browser-t", "resolver", "resolver-t", "root", "root-t", "tld", "tld-t", "auth", "auth-t"],
+    ["frame", "browser", "browser-t", "resolver", "resolver-t", "root", "root-t", "tld", "tld-t", "auth", "auth-t", "q-browser", "q-browser-t"],
+    ["frame", "browser", "browser-t", "resolver", "resolver-t", "root", "root-t", "tld", "tld-t", "auth", "auth-t", "q-browser", "q-browser-t", "q-root", "q-root-t"],
+    ["frame", "browser", "browser-t", "resolver", "resolver-t", "root", "root-t", "tld", "tld-t", "auth", "auth-t", "q-browser", "q-browser-t", "q-root", "q-root-t", "a-root", "a-root-t"],
+    ["frame", "browser", "browser-t", "resolver", "resolver-t", "root", "root-t", "tld", "tld-t", "auth", "auth-t", "q-browser", "q-browser-t", "q-root", "q-root-t", "a-root", "a-root-t", "q-tld", "q-tld-t"],
+    ["frame", "browser", "browser-t", "resolver", "resolver-t", "root", "root-t", "tld", "tld-t", "auth", "auth-t", "q-browser", "q-browser-t", "q-root", "q-root-t", "a-root", "a-root-t", "q-tld", "q-tld-t", "a-tld", "a-tld-t"],
+    ["frame", "browser", "browser-t", "resolver", "resolver-t", "root", "root-t", "tld", "tld-t", "auth", "auth-t", "q-browser", "q-browser-t", "q-root", "q-root-t", "a-root", "a-root-t", "q-tld", "q-tld-t", "a-tld", "a-tld-t", "q-auth", "q-auth-t"],
+    ["frame", "browser", "browser-t", "resolver", "resolver-t", "root", "root-t", "tld", "tld-t", "auth", "auth-t", "q-browser", "q-browser-t", "q-root", "q-root-t", "a-root", "a-root-t", "q-tld", "q-tld-t", "a-tld", "a-tld-t", "q-auth", "q-auth-t", "a-auth", "a-auth-t"],
+    ["frame", "browser", "browser-t", "resolver", "resolver-t", "root", "root-t", "tld", "tld-t", "auth", "auth-t", "q-browser", "q-browser-t", "q-root", "q-root-t", "a-root", "a-root-t", "q-tld", "q-tld-t", "a-tld", "a-tld-t", "q-auth", "q-auth-t", "a-auth", "a-auth-t", "a-browser", "a-browser-t"],
+    ["frame", "browser", "browser-t", "resolver", "resolver-t", "root", "root-t", "tld", "tld-t", "auth", "auth-t", "q-browser", "q-browser-t", "q-root", "q-root-t", "a-root", "a-root-t", "q-tld", "q-tld-t", "a-tld", "a-tld-t", "q-auth", "q-auth-t", "a-auth", "a-auth-t", "a-browser", "a-browser-t", "cache-l", "cache", "cache-t"],
+    ["frame", "browser", "browser-t", "resolver", "resolver-t", "root", "root-t", "tld", "tld-t", "auth", "auth-t", "cache-l", "cache", "cache-t", "q-browser", "q-browser-t", "second"]
+  ],
+  "caching": [
+    ["frame", "title"],
+    ["frame", "title", "m0", "i0"],
+    ["frame", "title", "m0", "i0", "m1", "i1"],
+    ["frame", "title", "m0", "i0", "m1", "i1", "m2", "i2"]
+  ],
+  "takeaway": [
+    ["frame", "title", "s0", "s1"]
+  ],
+  "end": [
+    ["frame", "title", "thanks"]
+  ]
+}

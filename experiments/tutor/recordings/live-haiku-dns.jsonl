@@ -1,0 +1,77 @@
+{"t":2471,"delta":"{"}
+{"t":2663,"delta":"\"op\":\"say\",\"text\":"}
+{"t":2664,"delta":"\"A website gets its address through"}
+{"t":2664,"delta":" the"}
+{"t":2664,"delta":" Domain Name System, which"}
+{"t":2664,"delta":" turns a name into a"}
+{"t":2664,"delta":" number.\"}\n{\"op\":"}
+{"t":2664,"delta":"\"title\",\"text\":\"Names"}
+{"t":2664,"delta":" become"}
+{"t":2667,"delta":" add"}
+{"t":2700,"delta":"resses via"}
+{"t":2713,"delta":" DNS\"}\n{\""}
+{"t":2729,"delta":"op\":\"draw\",\"kind"}
+{"t":2871,"delta":"\":\"box\",\"id\":\"brow"}
+{"t":2871,"delta":"ser\",\"col\":0,\"row"}
+{"t":2871,"delta":"\":1,\"label\":\""}
+{"t":2871,"delta":"Browser\",\"tone\":\"bl"}
+{"t":2871,"delta":"ue\"}\n{\"op\":"}
+{"t":2871,"delta":"\"draw\",\"kind\":\""}
+{"t":2880,"delta":"box\",\"id\":\"dns\",\""}
+{"t":2899,"delta":"col\":2"}
+{"t":2916,"delta":",\"row\":1,\"label"}
+{"t":2933,"delta":"\":\"DNS server"}
+{"t":2954,"delta":"\",\"tone\":\"am"}
+{"t":2986,"delta":"ber\"}\n{\"op\":"}
+{"t":3075,"delta":"\"draw\",\"kind\":\""}
+{"t":3075,"delta":"arrow\",\"id\":\"a"}
+{"t":3075,"delta":"1\",\"from\":\"browser\",\""}
+{"t":3075,"delta":"to\":\"dns\",\"label\":"}
+{"t":3079,"delta":"\"asks for name"}
+{"t":3095,"delta":"\",\"tone\":\"blue\""}
+{"t":3116,"delta":"}\n{\"op\":\"say"}
+{"t":3139,"delta":"\",\"text\":\"The"}
+{"t":3163,"delta":" DNS server loo"}
+{"t":3182,"delta":"ks up the name"}
+{"t":3207,"delta":","}
+{"t":3228,"delta":" like example"}
+{"t":3266,"delta":" d"}
+{"t":3266,"delta":"ot com, and fin"}
+{"t":3282,"delta":"ds its"}
+{"t":3306,"delta":" mat"}
+{"t":3328,"delta":"ching IP address.\"}\n{"}
+{"t":3357,"delta":"\"op\":\"draw\",\"k"}
+{"t":3375,"delta":"ind\":\"box\",\"id\":\""}
+{"t":3385,"delta":"ip\",\"col\":3"}
+{"t":3405,"delta":",\"row\":2"}
+{"t":3428,"delta":",\"label\":\"IP address"}
+{"t":3451,"delta":"\",\"tone\":\"green\"}"}
+{"t":3481,"delta":"\n{\"op\":\"draw"}
+{"t":3497,"delta":"\",\"kind\":\"arrow"}
+{"t":3512,"delta":"\",\"id\":\"a2\",\"from"}
+{"t":3528,"delta":"\":\"dns\",\"to\":\""}
+{"t":3548,"delta":"ip\",\"label\":\"repl"}
+{"t":3570,"delta":"ies with\",\"tone\":\"green"}
+{"t":3595,"delta":"\"}\n{\"op\":\""}
+{"t":3626,"delta":"say\",\"text\":\"An"}
+{"t":3640,"delta":" IP address is a number like "}
+{"t":3655,"delta":"93 "}
+{"t":3674,"delta":"184 216"}
+{"t":3700,"delta":" 34"}
+{"t":3711,"delta":", which comput"}
+{"t":3736,"delta":"ers use"}
+{"t":3758,"delta":" to find"}
+{"t":3776,"delta":" each"}
+{"t":3800,"delta":" other.\"}\n{\"op\":"}
+{"t":3821,"delta":"\"draw\",\"kind\":\""}
+{"t":3843,"delta":"note\",\"id\":\"n1"}
+{"t":3859,"delta":"\",\"col\":0,\"row\":"}
+{"t":3884,"delta":"2,\"cols\":2"}
+{"t":3902,"delta":",\"text\":\"Name"}
+{"t":3916,"delta":" in"}
+{"t":3934,"delta":","}
+{"t":3956,"delta":" number"}
+{"t":3977,"delta":" out, like a"}
+{"t":3998,"delta":" phone book\""}
+{"t":4034,"delta":"}"}
+{"t":4053,"done":true}

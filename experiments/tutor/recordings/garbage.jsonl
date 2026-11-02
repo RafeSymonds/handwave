@@ -1,0 +1,61 @@
+{"t": 200, "delta": "```"}
+{"t": 220, "delta": "json\n"}
+{"t": 240, "delta": "{\"op\": \"say\", \"text\": \"This stream"}
+{"t": 260, "delta": " mixes good lines with bad ones.\"}\n"}
+{"t": 280, "delta": "{\"op\":\"draw\",\"kind\""}
+{"t": 300, "delta": ":\"box\",\"id\":\"cut-off\n"}
+{"t": 320, "delta": "{\"op\": \"explod"}
+{"t": 340, "delta": "e\", \"id\": \"x\"}\n"}
+{"t": 360, "delta": "{\"op\": \"draw\", \"kind\": \"hexagon\""}
+{"t": 380, "delta": ", \"id\": \"h1\", \"col\": 1, \"row\": 1}\n"}
+{"t": 400, "delta": "{\"op\": \"draw\", \"kind\": \"box\", \"id\": \"bad id w"}
+{"t": 420, "delta": "ith spaces\", \"col\": 1, \"row\": 1, \"label\": \"x\"}\n"}
+{"t": 440, "delta": "{\"op\": \"draw\", \"kind\": \"box\", \"id\": \"good1\", \"col\": 99, \""}
+{"t": 460, "delta": "row\": -5, \"label\": \"Clamped into range\", \"tone\": \"purple\"}\n"}
+{"t": 480, "delta": "{\"op\": \"draw\", \"kind\": \"box\", \"id\": \"good2\", \"col\": "}
+{"t": 500, "delta": "3, \"row\": 0, \"label\": \"Moved out of the taken cell\"}\n"}
+{"t": 520, "delta": "{\"op\": \"draw\", \"kind\": \"arrow\", \"id\": \"lost\", \"from"}
+{"t": 540, "delta": "\": \"good1\", \"to\": \"nowhere\", \"label\": \"never drawn\"}\n"}
+{"t": 560, "delta": "{\"op\": \"draw\", \"kind\": \"arrow\", \"id\": "}
+{"t": 580, "delta": "\"self\", \"from\": \"good1\", \"to\": \"good1\"}\n"}
+{"t": 600, "delta": "{\"op\": \"draw\", \"kind\": \"box\", \"id\": \"late\", \"c"}
+{"t": 620, "delta": "ol\": 0, \"row\": 2, \"label\": \"Arrow drawn first\"}\n"}
+{"t": 640, "delta": "{\"op\": \"update\", \"id\": \""}
+{"t": 660, "delta": "missing\", \"tone\": \"blue\"}\n"}
+{"t": 680, "delta": "{\"op\": \"remove\","}
+{"t": 700, "delta": " \"id\": \"missing\"}\n"}
+{"t": 720, "delta": "{\"op\": \"focus\", \"ids\":"}
+{"t": 740, "delta": " [\"missing\", \"good1\"]}\n"}
+{"t": 760, "delta": "{\"op\": \"focus"}
+{"t": 780, "delta": "\", \"ids\": []}\n"}
+{"t": 800, "delta": "{\"op\": \"draw\", \"kind\": \"line\", \""}
+{"t": 820, "delta": "id\": \"short\", \"points\": [[1, 1]]}\n"}
+{"t": 840, "delta": "{\"op\": \"draw\", \"kind\": \"line\", \"id\": \"wild\", \"po"}
+{"t": 860, "delta": "ints\": [[-5, 900], [\"a\", \"b\"], [2, \"x\"], [1, 1]]}\n"}
+{"t": 880, "delta": "{\"op\": \"draw\", \"kind\": \"cells\", \"id\": \"e"}
+{"t": 900, "delta": "mpty\", \"col\": 0, \"row\": 3, \"values\": []}\n"}
+{"t": 920, "delta": "{\"op\": \"draw\", \"kind\": \"cells\", \"id\": \"arr\", \"col\": 0, "}
+{"t": 940, "delta": "\"row\": 3, \"values\": [1, 2, 3, \"a very long value here\"]}\n"}
+{"t": 960, "delta": "{\"op\": \"update\", \"id\": \""}
+{"t": 980, "delta": "arr.2\", \"tone\": \"amber\"}\n"}
+{"t": 1000, "delta": "{\"op\": \"update\", \"id\": \""}
+{"t": 1020, "delta": "arr.99\", \"tone\": \"amber\"}\n"}
+{"t": 1040, "delta": "nu"}
+{"t": 1060, "delta": "ll\n"}
+{"t": 1080, "delta": "4"}
+{"t": 1100, "delta": "2\n"}
+{"t": 1120, "delta": "[1,"}
+{"t": 1140, "delta": "2,3]\n"}
+{"t": 1160, "delta": "}"}
+{"t": 1180, "delta": "{\n"}
+{"t": 1200, "delta": "{\"op\":"}
+{"t": 1220, "delta": " \"say\"}\n"}
+{"t": 1240, "delta": "{\"op\": "}
+{"t": 1260, "delta": "\"title\"}\n"}
+{"t": 1280, "delta": "This line is plain word"}
+{"t": 1300, "delta": "s and should be spoken.\n"}
+{"t": 1320, "delta": "{\"op\":\"say\",\"text\":\"First object.\"}{\"op\":"}
+{"t": 1340, "delta": "\"say\",\"text\":\"Second object on one line.\"}\n"}
+{"t": 1360, "delta": "{\"op\": \"say\", \"text\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}
+{"t": 1380, "delta": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}\n"}
+{"t": 1450, "done": true}

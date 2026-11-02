@@ -1,0 +1,79 @@
+{"t":490,"delta":"{"}
+{"t":634,"delta":"\"op\":\"say\",\"text\":"}
+{"t":634,"delta":"\"A hash table st"}
+{"t":634,"delta":"ores key"}
+{"t":634,"delta":" and"}
+{"t":634,"delta":" value pairs, and"}
+{"t":634,"delta":" finds any"}
+{"t":644,"delta":" key alm"}
+{"t":663,"delta":"ost instantly.\"}\n{"}
+{"t":685,"delta":"\"op\":\"title\",\"text\":"}
+{"t":708,"delta":"\"A hash table fin"}
+{"t":726,"delta":"ds keys fast\"}"}
+{"t":746,"delta":"\n{\"op\":\"say"}
+{"t":782,"delta":"\",\"text\":\"It"}
+{"t":788,"delta":" run"}
+{"t":809,"delta":"s the"}
+{"t":830,"delta":" key through a hash function, which"}
+{"t":852,"delta":" turns it into a sl"}
+{"t":870,"delta":"ot number.\"}\n{\"op"}
+{"t":895,"delta":"\":\"draw\",\"kind\":"}
+{"t":910,"delta":"\"box\",\"id\":\"key\",\""}
+{"t":933,"delta":"col\":0"}
+{"t":953,"delta":",\"row\":1,\"label"}
+{"t":970,"delta":"\":\"Key\",\"tone\":"}
+{"t":1007,"delta":"\"blue\"}\n{\""}
+{"t":1014,"delta":"op\":\"draw\",\"kind"}
+{"t":1033,"delta":"\":\"box\",\"id\":\"h"}
+{"t":1056,"delta":"ash\",\"col\":1,\"row"}
+{"t":1073,"delta":"\":1,\"label\":\""}
+{"t":1095,"delta":"Hash function\",\"tone\":\""}
+{"t":1119,"delta":"amber\"}\n{\"op"}
+{"t":1135,"delta":"\":\"draw\",\"kind\":"}
+{"t":1164,"delta":"\"arrow\",\"id\":\""}
+{"t":1175,"delta":"a1\",\"from\":\"key\",\""}
+{"t":1198,"delta":"to\":\"hash\",\"label\":"}
+{"t":1216,"delta":"\"go"}
+{"t":1242,"delta":"es in\",\"tone\":\"bl"}
+{"t":1258,"delta":"ue\"}\n{\"op\":"}
+{"t":1285,"delta":"\"say\",\"text\":\"That"}
+{"t":1299,"delta":" slot number t"}
+{"t":1325,"delta":"ells the table ex"}
+{"t":1340,"delta":"actly where the"}
+{"t":1363,"delta":" value is"}
+{"t":1380,"delta":" stored.\"}\n{\"op"}
+{"t":1404,"delta":"\":\"draw\",\"kind\":"}
+{"t":1420,"delta":"\"c"}
+{"t":1444,"delta":"ells\",\"id\":\"slots"}
+{"t":1461,"delta":"\",\"col\":2,\"row\":"}
+{"t":1484,"delta":"1,\"cols\":2"}
+{"t":1503,"delta":",\"values\":[\""}
+{"t":1523,"delta":"…"}
+{"t":1542,"delta":"\",\"…\",\"…\"],\"label"}
+{"t":1562,"delta":"\":\"sl"}
+{"t":1583,"delta":"ots"}
+{"t":1604,"delta":"\"}\n{\"op\":\""}
+{"t":1624,"delta":"draw\",\"kind\":\"ar"}
+{"t":1646,"delta":"row\",\"id\":\"a2"}
+{"t":1665,"delta":"\",\"from\":\"hash\",\"to"}
+{"t":1686,"delta":"\":\"slots\",\"label\":\""}
+{"t":1709,"delta":"pic"}
+{"t":1726,"delta":"ks slot\",\"tone\":\""}
+{"t":1748,"delta":"green\"}\n{\"op\":"}
+{"t":1768,"delta":"\"say\",\"text\":\"So"}
+{"t":1788,"delta":" lookup sk"}
+{"t":1808,"delta":"ips sear"}
+{"t":1828,"delta":"ching,"}
+{"t":1849,"delta":" and j"}
+{"t":1869,"delta":"umps straight to the right"}
+{"t":1890,"delta":" slot.\""}
+{"t":1911,"delta":"}\n{\"op\":\"dra"}
+{"t":1930,"delta":"w\",\"kind\":\"note\",\""}
+{"t":1952,"delta":"id\":\"n"}
+{"t":1971,"delta":"1\",\"col\":1"}
+{"t":1993,"delta":",\"row\":3,\"c"}
+{"t":2012,"delta":"ols\":2,\"text\":\""}
+{"t":2033,"delta":"Lookup jumps stra"}
+{"t":2053,"delta":"ight to the slot\""}
+{"t":2071,"delta":"}"}
+{"t":2091,"done":true}

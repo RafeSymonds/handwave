@@ -1,0 +1,116 @@
+{"t":6424,"delta":"{\"op\":\"say\",\"text"}
+{"t":6453,"delta":"\":\"A website gets its address"}
+{"t":6816,"delta":" by regist"}
+{"t":6816,"delta":"ering a domain name,"}
+{"t":6816,"delta":" then p"}
+{"t":6816,"delta":"ointing that name at its server.\""}
+{"t":6816,"delta":"}\n{\"op\":\"title"}
+{"t":6816,"delta":"\",\"text\":\"A"}
+{"t":6816,"delta":" name points to a server\""}
+{"t":6816,"delta":"}\n{\"op\":\"dra"}
+{"t":6816,"delta":"w\",\"kind\":\"box\",\""}
+{"t":6816,"delta":"id\":\"owner\",\"col\":"}
+{"t":6816,"delta":"0,\"row\":1"}
+{"t":6848,"delta":",\"label\":\"Site ow"}
+{"t":7173,"delta":"ner\",\"tone\":\"blue"}
+{"t":7173,"delta":"\"}\n{\"op\":\""}
+{"t":7173,"delta":"draw\",\"kind\":\"box"}
+{"t":7173,"delta":"\",\"id\":\"regist"}
+{"t":7173,"delta":"rar\",\"col\":1,\""}
+{"t":7173,"delta":"row\":1,\"label\":\""}
+{"t":7173,"delta":"Registrar\",\"tone\":"}
+{"t":7173,"delta":"\"g"}
+{"t":7173,"delta":"ray\"}\n{\"op\":"}
+{"t":7180,"delta":"\"draw\",\"kind\":\""}
+{"t":7215,"delta":"arrow\",\"id\":\"a"}
+{"t":7248,"delta":"1\",\"from\":\"owner\",\""}
+{"t":7573,"delta":"to\":\"registrar\",\"label"}
+{"t":7573,"delta":"\":\"buys a name"}
+{"t":7573,"delta":"\",\"tone\":\"blue\""}
+{"t":7573,"delta":"}\n{\"op\":\"say"}
+{"t":7573,"delta":"\",\"text\":\"The registrar"}
+{"t":7573,"delta":" records"}
+{"t":7573,"delta":" your"}
+{"t":7573,"delta":" "}
+{"t":7573,"delta":"ownership in the"}
+{"t":7578,"delta":" registry, which man"}
+{"t":7611,"delta":"ages every"}
+{"t":7644,"delta":" name ending in d"}
+{"t":7917,"delta":"ot com.\""}
+{"t":7917,"delta":"}\n{\"op\":\"dra"}
+{"t":7917,"delta":"w\",\"kind\":\"box\",\""}
+{"t":7917,"delta":"id\":\"registry\",\"col\":"}
+{"t":7917,"delta":"2,\"row\":1,\""}
+{"t":7917,"delta":"label\":\"Registry\",\"t"}
+{"t":7917,"delta":"one\":\"gray\"}"}
+{"t":7918,"delta":"\n{\"op\":\"draw\",\""}
+{"t":7946,"delta":"kind\":\"arrow\",\""}
+{"t":7979,"delta":"id\":\"a2\",\"from\":"}
+{"t":8012,"delta":"\"registrar\",\"to\":\""}
+{"t":8046,"delta":"registry\",\"label\":\"records ow"}
+{"t":8279,"delta":"ner\",\"tone\":\"gray"}
+{"t":8279,"delta":"\"}\n{\"op\":\""}
+{"t":8279,"delta":"say\",\"text\":\""}
+{"t":8279,"delta":"Then the"}
+{"t":8279,"delta":" owner sets a"}
+{"t":8279,"delta":" DNS record, which links"}
+{"t":8279,"delta":" the name"}
+{"t":8311,"delta":" to the server's num"}
+{"t":8345,"delta":"e"}
+{"t":8377,"delta":"ric I"}
+{"t":8411,"delta":"P address.\"}\n{\"op"}
+{"t":8444,"delta":"\":\"draw\",\"kind\":"}
+{"t":8664,"delta":"\"box\",\"id\":\"d"}
+{"t":8664,"delta":"ns\",\"col\":3,\"row"}
+{"t":8664,"delta":"\":1,\"label\":\"D"}
+{"t":8664,"delta":"NS record\",\"tone\":\""}
+{"t":8664,"delta":"amber\"}\n{\"op"}
+{"t":8665,"delta":"\":\"draw\",\"kind\":"}
+{"t":8678,"delta":"\"arrow\",\"id"}
+{"t":8712,"delta":"\":\"a3\",\"from\":\""}
+{"t":8745,"delta":"registry\",\"to\":\"dns"}
+{"t":8780,"delta":"\",\"label\":\"points"}
+{"t":8812,"delta":" to\",\""}
+{"t":8845,"delta":"tone\":\"amber\"}"}
+{"t":9014,"delta":"\n{\"op\":\"say\",\""}
+{"t":9014,"delta":"text\":\"That"}
+{"t":9014,"delta":" record le"}
+{"t":9014,"delta":"ads to the web"}
+{"t":9014,"delta":" server, which has"}
+{"t":9044,"delta":" an IP address given"}
+{"t":9083,"delta":" by its"}
+{"t":9110,"delta":" hosting company.\"}\n{"}
+{"t":9144,"delta":"\"op\":\"draw\",\"k"}
+{"t":9178,"delta":"ind\":\"box\",\"id\":\""}
+{"t":9211,"delta":"server\",\"col\":3,\"row"}
+{"t":9245,"delta":"\":3,\"label\":\""}
+{"t":9415,"delta":"Web server\",\"tone\":\"green"}
+{"t":9415,"delta":"\"}\n{\"op\":\""}
+{"t":9415,"delta":"draw\",\"kind\":\"ar"}
+{"t":9415,"delta":"row\",\"id\":\"a4"}
+{"t":9415,"delta":"\",\"from\":\"dns\",\"to"}
+{"t":9447,"delta":"\":\"server\",\"label\":\"g"}
+{"t":9478,"delta":"ives IP address"}
+{"t":9512,"delta":"\",\"tone\":\"green\"}"}
+{"t":9546,"delta":"\n{\"op\":\"say\",\""}
+{"t":9579,"delta":"text\":\"When you"}
+{"t":9612,"delta":" type the name, your"}
+{"t":9645,"delta":" browser asks D"}
+{"t":9769,"delta":"NS for"}
+{"t":9769,"delta":" that"}
+{"t":9769,"delta":" number"}
+{"t":9777,"delta":" and conn"}
+{"t":9811,"delta":"ects.\""}
+{"t":9851,"delta":"}\n{\"op\":\"dra"}
+{"t":9878,"delta":"w\",\"kind\":\"box"}
+{"t":9910,"delta":"\",\"id\":\"browser\",\"col"}
+{"t":9944,"delta":"\":0,\"row\":3,"}
+{"t":9979,"delta":"\"label\":\"Browser\",\""}
+{"t":10011,"delta":"tone\":\"blue\"}"}
+{"t":10045,"delta":"\n{\"op\":\"draw"}
+{"t":10387,"delta":"\",\"kind\":\"arrow"}
+{"t":10387,"delta":"\",\"id\":\"a5\",\"from"}
+{"t":10387,"delta":"\":\"browser\",\"to\":\""}
+{"t":10387,"delta":"server\",\"label\":\"connects\",\""}
+{"t":10387,"delta":"tone\":\"blue\"}"}
+{"t":10412,"done":true}

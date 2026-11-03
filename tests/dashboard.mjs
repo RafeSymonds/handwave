@@ -669,6 +669,20 @@ const twoWords = await wordsUntil('twoz', (w) => w.includes('a') && w.includes('
 const twoColors = await app(() => window.app.plotOf('twoz').strips[0].colors);
 check('with 8 or fewer series, a series at zero keeps its color and its name', new Set(twoColors).size === 2 && !twoColors.includes(gray), { twoColors, twoWords });
 
+// A legend at every width, on the shape that showed "/-/healthy 0-60 more": whatever fits, the
+// last value stops short of the count, and the count is always there.
+prom.series.set('legend_many', Array.from({ length: 64 }, (_, i) => ({ metric: { handler: i < 4 ? ['/api/v1/query_range', '/api/v1/query', '/metrics', '/-/healthy'][i] : `/idle/${i}` }, fn: () => (i < 4 ? 40 - i * 10 : 0) })));
+const legends = [];
+for (const w of [200, 240, 280, 320, 360, 400, 440, 480, 540, 600, 700]) {
+  await openDrawing([{ id: 'lg', x: 40, y: 40, w, h: 240, label: 'a legend\nchart\nprod: legend_many in req/s' }], { span: 300 });
+  await until(() => window.app.plotOf('lg')?.moreStart, `the legend at width ${w}`, 10);
+  await sleep(80);
+  legends.push({ w, words: await readouts('lg'), ...(await app(() => { const c = window.app.plotOf('lg'); return { end: c.legendEnd, more: c.moreStart }; })) });
+}
+const collided = legends.filter((x) => x.end > x.more);
+check('at every width, a legend\'s last value stops short of "+N more"', collided.length === 0 && legends.every((x) => x.end !== null), collided.length ? collided : legends.length);
+check('and the count adds up', legends.every((x) => { const shown = x.words.filter((word) => ['/api/v1/query_range', '/api/v1/query', '/metrics', '/-/healthy'].includes(word) || word.endsWith('...')).length; return x.words.includes(`+${64 - shown} more`); }), legends.map((x) => x.words.filter((word) => /more$/.test(word))[0]));
+
 // More series than the server keeps: the largest stay, not the first alphabetically.
 prom.series.set('too_many', Array.from({ length: 230 }, (_, i) => ({ metric: { pod: `pod-${String(i).padStart(3, '0')}` }, fn: () => i })));
 await openDrawing([{ id: 'capped', x: 40, y: 40, w: 1000, h: 340, label: 'too many\nchart\nprod: too_many in req/s' }], { span: 300 });
@@ -954,6 +968,21 @@ check('the chart carries the state over time', strip.includes('critical') && str
 const marks = await until(() => { const l = window.app.dash.panels.get('ac').chart.strips[0].transitions.map((t) => t.to); return l.includes('firing') && l.includes('ok') && l; }, 'the marks on the chart', 5);
 check('and marks each transition on the chart', true, marks);
 await shot('07-after-alert');
+
+// The alerts panel: five firing rows, then "what changed". At heights where only the heading
+// would fit, it goes too.
+const fiveFiring = ['a', 'b', 'c', 'd', 'e'].map((k) => { const f = steps(10); f.set(90, nowS() - 90); prom.series.set(`five_${k}`, f); return k; });
+await openDrawing([
+  ...[205, 210, 215, 220, 225, 230, 235].map((h, i) => ({ id: `ap${i}`, x: 20 + i * 150, y: 20, w: 140, h, label: 'alerts' })),
+  ...fiveFiring.map((k, i) => ({ id: `fb${k}`, x: 20 + i * 150, y: 280, w: 140, h: 90, label: `${k}\nprod: five_${k} in %\nwarn above 50` })),
+], { span: 300 });
+await until(() => /5 warn/.test(document.getElementById('firing').textContent) && window.app.m.transitions.length >= 5, 'five rules firing', 15);
+await sleep(300);
+const panelsThere = await app(() => [0, 1, 2, 3, 4, 5, 6].map((i) => window.app.readouts(`ap${i}`)));
+const orphaned = panelsThere.filter((w) => w.includes('what changed') && w.indexOf('what changed') === w.length - 1);
+check('the alerts panel never draws "what changed" with nothing under it', orphaned.length === 0, orphaned.length ? orphaned[0].slice(-3) : '');
+check('and still shows it where a row fits', panelsThere.some((w) => w.includes('what changed') && w.length > w.indexOf('what changed') + 1), panelsThere.map((w) => w.includes('what changed')));
+check('and leaves it out where none does', panelsThere.some((w) => !w.includes('what changed')), panelsThere.map((w) => w.includes('what changed')));
 
 // ===========================================================================
 section('titles: the status gives way, not the name');

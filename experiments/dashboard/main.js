@@ -1048,7 +1048,7 @@ window.app = {
   plotOf: (id) => {
     const c = m.dash.panels.get(id)?.chart;
     if (!c) return null;
-    return { plotX: c.plotX, plotW: c.plotW, t0: c.t0, t1: c.t1, plotBottom: c.plotBottom, strips: c.strips.map((s) => ({ unit: s.unit, unitShown: s.unitShown, y: s.y, h: s.h, min: s.scale.min, max: s.scale.max, ticks: s.scale.ticks, labels: s.labels, hasData: s.hasData, gaps: s.gaps, colors: s.lines.map((l) => l.color), names: s.lines.map((l) => l.name) })) };
+    return { plotX: c.plotX, plotW: c.plotW, t0: c.t0, t1: c.t1, plotBottom: c.plotBottom, legendEnd: c.legendEnd ?? null, moreStart: c.moreStart ?? null, strips: c.strips.map((s) => ({ unit: s.unit, unitShown: s.unitShown, y: s.y, h: s.h, min: s.scale.min, max: s.scale.max, ticks: s.scale.ticks, labels: s.labels, hasData: s.hasData, gaps: s.gaps, colors: s.lines.map((l) => l.color), names: s.lines.map((l) => l.name) })) };
   },
   statusOf: (id) => {
     const owner = m.dash.panels.get(id) ?? m.dash.edges.get(id);

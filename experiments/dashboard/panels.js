@@ -596,26 +596,36 @@ export function createPainter(m) {
       setFont(12, 'bold');
       return sum + 35 * u + a + ctx.measureText(words(line, withUnit)).width;
     }, 0);
-    const withUnit = need(true) + r.x + 4 * u <= right;
-    for (const line of named) {
+    const dropped = [...new Set(c.lines.map((line) => line.st))].reduce((sum, st) => sum + (st.dropped ?? 0), 0);
+    // Room is kept for what says how many are left out, so the last value never runs into it.
+    setFont(11);
+    const moreW = ctx.measureText(`+${c.lines.length + dropped} more`).width + 10 * u;
+    const leftOutAfter = (i) => c.lines.length - (i + 1) + dropped;
+    const withUnit = need(true) + r.x + 4 * u <= right - (leftOutAfter(named.length - 1) > 0 ? moreW : 0);
+    for (let i = 0; i < named.length; i++) {
+      const line = named[i];
       const value = words(line, withUnit);
-      setFont(12);
-      const nameW = ctx.measureText(line.name).width;
+      const end = right - (leftOutAfter(i) > 0 ? moreW : 0);
       setFont(12, 'bold');
       const valueW = ctx.measureText(value).width;
-      const need = 18 * u + nameW + 5 * u + valueW + 12 * u;
-      if (x + need > right && shown) break;
+      setFont(12);
+      const nameW = ctx.measureText(line.name).width;
+      if (shown && x + 18 * u + nameW + 5 * u + valueW > end) break;
+      // The first one always shows, and its name gives way if it has to.
+      const name = fit(line.name, end - x - 18 * u - 5 * u - valueW, 12);
       ctx.strokeStyle = line.color;
       ctx.lineWidth = 2 * u;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 14 * u, y); ctx.stroke();
       x += 18 * u;
-      x += label(line.name, x, y, { size: 12, color: T.text2, base: 'middle' }) + 5 * u;
-      x += label(value, x, y, { size: 12, base: 'middle', weight: 'bold' }) + 12 * u;
+      x += label(name, x, y, { size: 12, color: T.text2, base: 'middle' }) + 5 * u;
+      x += label(value, x, y, { size: 12, base: 'middle', weight: 'bold' });
+      c.legendEnd = x;
+      x += 12 * u;
       shown++;
     }
-    const dropped = [...new Set(c.lines.map((line) => line.st))].reduce((sum, st) => sum + (st.dropped ?? 0), 0);
     const hidden = c.lines.length - shown + dropped;
-    if (hidden > 0) label(`+${hidden} more`, right, y, { size: 11, color: T.muted, align: 'right', base: 'middle' });
+    c.moreStart = null;
+    if (hidden > 0) c.moreStart = right - label(`+${hidden} more`, right, y, { size: 11, color: T.muted, align: 'right', base: 'middle' });
   }
 
   function paintGaps(strip, X, plotX, plotW) {
@@ -948,9 +958,10 @@ export function createPainter(m) {
       y += rowH;
     }
     const recent = m.transitions.filter((tr) => at === null || tr.t <= at).slice(-12).reverse();
-    if (recent.length && y + rowH * 1.2 < bottom) {
+    // The heading only comes with at least one row under it.
+    if (recent.length && y + 8 * u + rowH * 0.8 + rowH / 2 <= bottom) {
       y += 8 * u;
-      label('what changed', r.x, y, { size: 11, color: T.muted, base: 'middle', keep: false });
+      label('what changed', r.x, y, { size: 11, color: T.muted, base: 'middle' });
       y += rowH * 0.8;
       for (const tr of recent) {
         if (y + rowH / 2 > bottom) break;

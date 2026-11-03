@@ -435,6 +435,7 @@ const GIFS = {
     await p.click('#incident-menu [data-kind="db-slow"]');
     await p.waitForFunction(() => window.app.statusOf('db')?.level === 'critical' && window.app.statusOf('api')?.level === 'critical', null, { timeout: 90000 });
     await p.keyboard.press('f');
+    await p.mouse.move(1599, 899);   // The drawn pointer goes to the corner, out of the picture's way.
     await sleep(1500);
     await p.screenshot({ path: path.join(OUT, 'dashboard-wall.png') });
     console.log('dashboard-wall.png');

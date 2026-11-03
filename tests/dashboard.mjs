@@ -975,10 +975,11 @@ await openDrawing(titled.map(([id, label], i) => ({ id, x: 20 + (i % 6) * 260, y
 await statusUntil('t-box', 'ok');
 const titleZoom = await app(() => window.app.board.camera.zoom);
 const titlesAt = async (level) => {
-  await sleep(350);
   for (const [id] of titled) {
+    // The board redraws on the next tick of the clock, up to a second after the data says so.
+    await until(([i, l]) => window.app.headerOf(i).level === l, `${id} to draw ${level}`, 5, [id, level]);
+    await sleep(60);
     const head = await app((i) => window.app.headerOf(i), id);
-    assert.equal(head.level, level, `${id} is ${level}: ${JSON.stringify(head)}`);
     assert.equal(head.shown, TITLE, `${id} shows its whole title at ${level}: ${JSON.stringify(head)}`);
     assert.ok(head.title <= head.room + 0.5, `${id} has room for its title at ${level}: ${JSON.stringify(head)}`);
   }

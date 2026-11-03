@@ -229,4 +229,4 @@ red box says what is probably upstream, and going back shows the whole system at
 Editing and reading a drawing use `edit.js` and `graph.js` from the runnable diagrams.
 
 `node tests/dashboard.mjs` drives all of this in a real browser with real mouse and keyboard input,
-against a fake Prometheus and a fake internal service inside the test, in about 3 minutes.
+against a fake Prometheus and a fake internal service inside the test, in about 4 minutes.

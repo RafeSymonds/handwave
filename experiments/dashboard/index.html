@@ -1,0 +1,73 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>handwave: dashboards</title>
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- A drawing can come from anyone. This page talks only to this server, so nothing in a drawing can load from or send to anywhere else. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NpjhGkWNaZup5g0asPwgawiXRuIFyB/BsLu/ESM+Bps='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<script type="importmap">
+{"imports": {
+  "roughjs": "/node_modules/roughjs/bundled/rough.esm.js",
+  "perfect-freehand": "/node_modules/perfect-freehand/dist/esm/index.mjs"
+}}
+</script>
+<link rel="stylesheet" href="/lib/page.css">
+<link rel="stylesheet" href="./dash.css">
+
+<header id="bar">
+  <button id="btn-gallery" class="strong">dashboards</button>
+  <span id="title"></span>
+  <button id="firing" title="What is firing right now. Click for the list." aria-live="polite"></button>
+  <span class="spacer"></span>
+  <div class="group" role="group" aria-label="Time">
+    <button id="btn-live" title="Follow now, or stop here. The space bar does this too."></button>
+    <span class="presets" role="group" aria-label="Time range">
+      <button data-span="300">5m</button><button data-span="900">15m</button><button data-span="3600">1h</button><button data-span="21600">6h</button><button data-span="86400">24h</button>
+    </span>
+    <button id="btn-zoomout" title="Back to the range before you zoomed. The z key does this too.">zoom out</button>
+  </div>
+  <span id="clock"><span id="range"></span><span id="updated"></span></span>
+  <div class="group">
+    <button id="btn-incident" title="The demo source can have an incident, for trying this out" hidden>start an incident</button>
+    <button id="btn-table" title="Every number on this drawing, as a table">table</button>
+    <button id="btn-theme" title="Light or dark. The d key does this too.">dark</button>
+    <button id="btn-wall" title="Full screen with no controls, for a wall. The f key does this too.">wall</button>
+    <button id="btn-help" class="strong" title="Every word and shape. The ? key opens this too.">what can I draw?</button>
+  </div>
+</header>
+
+<div id="looking" aria-live="polite"></div>
+
+<div id="work">
+  <aside id="left">
+    <div class="edit-row" role="group" aria-label="Edit">
+      <button id="btn-undo" title="Ctrl or Cmd + Z">undo</button>
+      <button id="btn-redo" title="Ctrl or Cmd + Shift + Z">redo</button>
+      <button id="btn-save" title="Save an .excalidraw file that opens in Excalidraw">save</button>
+      <button id="btn-open" title="Open an .excalidraw file. You can also drop one anywhere.">open</button>
+    </div>
+    <h4>Panels</h4>
+    <div id="parts"></div>
+    <h4>Sources</h4>
+    <div id="sources"></div>
+    <p id="tray-note">Drag one onto the board, or onto a shape to add it to that shape.</p>
+  </aside>
+  <main id="middle">
+    <div id="trouble" hidden role="alert"></div>
+    <div id="toast" hidden role="status"></div>
+    <canvas id="stage" aria-label="The dashboard. The table button lists every number on it."></canvas>
+    <canvas id="tape" aria-label="Time. Drag along it to see every shape at that moment."></canvas>
+  </main>
+  <aside id="inspector"></aside>
+</div>
+
+<div id="wallbar" hidden></div>
+<textarea id="label" spellcheck="false" aria-label="Label"></textarea>
+<div id="hints" hidden></div>
+<div id="incident-menu" hidden></div>
+<div id="firing-menu" hidden></div>
+<section id="reference" hidden></section>
+<section id="gallery" hidden></section>
+<section id="tableview" hidden></section>
+<input id="file" type="file" accept=".excalidraw,.json,application/json" hidden>
+<script type="module" src="./main.js"></script>

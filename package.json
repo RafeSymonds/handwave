@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "version": "0.0.0",
-  "description": "Hand-drawn things you can poke: explorables, runnable diagrams, branching lessons, live decks, a whiteboard tutor and games.",
+  "description": "Hand-drawn things you can poke: explorables, runnable diagrams, monitoring dashboards, branching lessons, live decks, a whiteboard tutor and games.",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node tests/explorable.mjs && node tests/front.mjs && node tests/machine.mjs && node tests/live-deck.mjs && node tests/tutor.mjs && node tests/game-ink.mjs && node tests/game-platformer.mjs && node tests/lesson.mjs"
+    "test": "node tests/explorable.mjs && node tests/front.mjs && node tests/machine.mjs && node tests/dashboard.mjs && node tests/live-deck.mjs && node tests/tutor.mjs && node tests/game-ink.mjs && node tests/game-platformer.mjs && node tests/lesson.mjs"
   },
   "dependencies": {
     "matter-js": "^0.20.0",

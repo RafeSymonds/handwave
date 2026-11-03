@@ -77,6 +77,50 @@ word.
 
 ![A gallery of 14 runnable demos](media/machine-gallery.png)
 
+## Dashboards
+
+Draw your system and the shapes show live numbers, so the layout of the dashboard is
+the system's own layout. A dashboard is a plain `.excalidraw` file, and everything that
+binds it to data is label text you can edit and diff.
+
+    api
+    demo: api.rate
+    demo: api.errors
+    warn above 1 for 20s
+    critical above 3 for 20s
+
+That label in a rectangle is a box with two numbers, a status and two alerts. Add
+`chart` on its own line and it is a chart. An arrow with a source line and `flow` moves
+dots at that rate.
+
+**Look back at the whole system.** Drag along the bottom and every shape, arrow, chart
+and alert list shows that moment. This is the part a grid of panels does not do:
+
+![Dragging back through an incident, as the database, then the API, then the web tier go critical and recover](media/dashboard.gif)
+
+**The page says what is allowed.** Drag panels and metrics on, get hints as you type a
+label, and fix a misspelled word by clicking its message on the drawing. **What can I
+draw?** is a reference built from the table the parser reads.
+
+![Building a box and a chart from a blank board, and fixing a misspelled word](media/dashboard-build.gif)
+
+**Wall view** is one key, with one large line saying what is firing, and `NOT UPDATING`
+if the data stops.
+
+![A dark wall view of a service with two critical alerts](media/dashboard-wall.png)
+
+Data comes from this machine and a simulated service with no setup, or from Prometheus,
+any JSON URL, or numbers a script pushes. A gap stays a gap, a stale number stops looking
+current, and a failed source gives its reason on the panel. A drawing names a source you
+declared in a local file and can never name an address, so opening someone else's drawing
+can't reach your network.
+
+Grafana still does far more: dozens of sources, query builders, teams and months of data.
+Here alerts only evaluate while a page is open, nothing sends a notification, and the
+dashboard only answers the machine it runs on, so a wall screen needs its own server.
+[`experiments/dashboard/README.md`](experiments/dashboard/README.md) has every word and
+every gap.
+
 ## Platformer
 
 Every level is a plain `.excalidraw` file, so Excalidraw is the level editor. Gray
@@ -177,6 +221,9 @@ These are experiments, and their tests can only prove so much:
   own converter. In a one-off check, excalidraw.com kept every element and arrow
   binding of their saved files. The platformer's levels open in Excalidraw's renderer.
   No file drawn by hand on excalidraw.com has been run here.
+- **Real monitoring.** The dashboards have been checked by hand against one real
+  Prometheus on macOS, which scraped only itself, and otherwise against a fake one. Nobody
+  has used them during an incident, and nothing has run for days.
 
 ## Layout
 

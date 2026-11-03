@@ -1,0 +1,24 @@
+{
+  "sources": {
+    "prod": {
+      "type": "prometheus",
+      "url": "http://127.0.0.1:9090",
+      "every": "15s",
+      "bearer": "put-a-token-here-or-delete-this-line"
+    },
+    "orders": {
+      "type": "json",
+      "url": "http://127.0.0.1:8080/stats",
+      "every": "5s",
+      "fields": {
+        "qps": { "path": "requests.perSecond", "name": "requests", "unit": "req/s" },
+        "errors": { "path": "requests.errorPercent", "name": "errors", "unit": "%" }
+      }
+    },
+    "deploys": {
+      "type": "push",
+      "every": "30s",
+      "token": "put-a-long-random-string-here"
+    }
+  }
+}

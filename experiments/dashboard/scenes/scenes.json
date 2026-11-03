@@ -1,0 +1,40 @@
+[
+ {
+  "id": "this-machine",
+  "group": "real data, no setup",
+  "title": "This machine",
+  "summary": "Your CPU, memory, load, disk and network, read from the operating system since the server started.",
+  "span": 300
+ },
+ {
+  "id": "checkout",
+  "group": "a system",
+  "title": "Checkout",
+  "summary": "The drawing is the dashboard: six parts of a made-up service and the traffic between them. Press \"start an incident\", then go back and look at it."
+ },
+ {
+  "id": "look-back",
+  "group": "a system",
+  "title": "An incident 18 minutes ago",
+  "summary": "The same drawing over the last hour. The database slowed down 18 minutes before the server started. Drag along the bottom to watch it happen on the whole system.",
+  "span": 3600
+ },
+ {
+  "id": "grid",
+  "group": "a grid, if you want one",
+  "title": "A grid of charts",
+  "summary": "Nine charts in a plain grid. Shapes snap to a grid as you drag, so this is quick to draw."
+ },
+ {
+  "id": "wall",
+  "group": "for a wall",
+  "title": "Everything at a glance",
+  "summary": "Boxes and one list. Press wall for full screen. Dark mode is one key: d."
+ },
+ {
+  "id": "prometheus",
+  "group": "needs a source",
+  "title": "Your Prometheus",
+  "summary": "This drawing names a source called prom, so it fails until you declare one in .sources.json. It shows what a missing source looks like, and every word it needs."
+ }
+]

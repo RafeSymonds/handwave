@@ -1,0 +1,3 @@
+# Sources, and any credentials they need, stay on this machine. The name starts with
+# a dot because the root server refuses to serve any path with a dot-file in it.
+.sources.json

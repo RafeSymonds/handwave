@@ -321,6 +321,126 @@ const GIFS = {
     await p.close();
   },
 
+  // The seeded incident, 18 minutes before this server started. Dragging along the
+  // bottom puts every shape at that moment.
+  async dashboard({ base, context }) {
+    const p = await page(context);
+    await p.goto(`${base}/experiments/dashboard/#look-back`);
+    await p.waitForFunction(() => window.app?.m.sceneId === 'look-back' && window.app.readouts('api').length > 3 && window.app.m.transitions.length > 0);
+    const seeded = await p.evaluate(async () => {
+      const r = await fetch('/dashboard/incident', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fail: false }) });
+      return (await r.json()).incidents[0];
+    });
+    const tapeAt = (t) => p.evaluate((t) => {
+      const r = document.getElementById('tape').getBoundingClientRect();
+      const { t0, t1 } = window.app.m.range();
+      return { x: r.left + 12 + ((t - t0) / (t1 - t0)) * (r.width - 24), y: r.top + r.height / 2 };
+    }, t);
+    const before = await tapeAt(seeded.start - 90);
+    const during = await tapeAt(seeded.start + 150);
+    const after = await tapeAt(seeded.start + 330);
+    await p.mouse.move(800, 620);
+    const rec = new Recorder(p, 'dashboard');
+    await rec.start();
+    await sleep(1200);
+    await glide(p, { x: 800, y: 620 }, before, 500);
+    await p.mouse.down();
+    await glide(p, before, during, 3000, { points: 40 });
+    await sleep(2500);
+    await glide(p, during, after, 2200, { points: 30 });
+    await p.mouse.up();
+    await sleep(1000);
+    await p.keyboard.press('Escape');
+    await sleep(1200);
+    await rec.stop();
+    encode('dashboard', [rec], single(960, 12));
+    await p.close();
+  },
+
+  // From a blank board: a box, a label with hints, a misspelled word fixed on the
+  // drawing, then a metric dropped from the list.
+  async 'dashboard-build'({ base, context }) {
+    const p = await page(context);
+    await p.goto(`${base}/experiments/dashboard/#blank`);
+    await p.waitForFunction(() => window.app && window.app.doc.length === 0);
+    const on = (fx, fy) => p.evaluate(([fx, fy]) => {
+      const r = document.getElementById('stage').getBoundingClientRect();
+      return { x: r.left + r.width * fx, y: r.top + r.height * fy };
+    }, [fx, fy]);
+    const middleOf = async (selector) => {
+      const b = await p.locator(selector).boundingBox();
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    };
+    const typed = async (words) => { await p.keyboard.type(words, { delay: 55 }); await sleep(200); };
+    await p.mouse.move(800, 620);
+    const rec = new Recorder(p, 'dashboard-build');
+    await rec.start();
+    await sleep(800);
+
+    const part = await middleOf('.part[data-part="box"]');
+    await glide(p, { x: 800, y: 620 }, part, 450);
+    await dragTo(p, part, await on(0.27, 0.3), 700);
+    const id = await p.evaluate(() => window.app.m.selected);
+    await sleep(1000);
+
+    const title = await p.evaluate((i) => {
+      const e = window.app.byId(i);
+      return window.app.toScreen(e.x + e.width / 2, e.y + 12 * window.app.m.unit());
+    }, id);
+    await glide(p, await on(0.27, 0.45), title, 300);
+    await p.mouse.dblclick(title.x, title.y);
+    await p.waitForFunction(() => window.app.editing);
+    await p.keyboard.press('ControlOrMeta+a');
+    await typed('api');
+    await p.keyboard.press('Shift+Enter');
+    await typed('dem');
+    await sleep(600);
+    await p.keyboard.press('Tab');
+    await typed('api.ra');
+    await sleep(600);
+    await p.keyboard.press('Tab');
+    await p.keyboard.press('Shift+Enter');
+    await typed('warnn above 400 for 20s');
+    await sleep(900);
+    await p.keyboard.press('Enter');
+    await p.waitForFunction((i) => window.app.m.hot.some((x) => x.fix && x.owner === i), id);
+    await sleep(1200);
+
+    const fix = await p.evaluate((i) => {
+      const h = window.app.m.hot.find((x) => x.fix && x.owner === i);
+      return window.app.toScreen(h.x + h.w / 2, h.y + h.h / 2);
+    }, id);
+    await glide(p, title, fix, 500);
+    await p.mouse.click(fix.x, fix.y);
+    await sleep(1400);
+
+    await p.evaluate(() => { document.querySelector('.source[data-name="demo"] details').open = true; });
+    await sleep(500);
+    const metric = await middleOf('.metric[data-source="demo"][data-metric="api.rate"]');
+    await glide(p, fix, metric, 500);
+    await dragTo(p, metric, await on(0.72, 0.32), 800);
+    await sleep(2500);
+    await rec.stop();
+    encode('dashboard-build', [rec], single(960, 12));
+    await p.close();
+  },
+
+  // A still, because the alerts wait out their 20 seconds before they fire.
+  async 'dashboard-wall'({ base, context }) {
+    const p = await page(context);
+    await p.goto(`${base}/experiments/dashboard/#checkout`);
+    await p.waitForFunction(() => window.app?.m.sceneId === 'checkout' && window.app.readouts('api').length > 3);
+    await p.keyboard.press('d');
+    await p.click('#btn-incident');
+    await p.click('#incident-menu [data-kind="db-slow"]');
+    await p.waitForFunction(() => window.app.statusOf('db')?.level === 'critical' && window.app.statusOf('api')?.level === 'critical', null, { timeout: 90000 });
+    await p.keyboard.press('f');
+    await sleep(1500);
+    await p.screenshot({ path: path.join(OUT, 'dashboard-wall.png') });
+    console.log('dashboard-wall.png');
+    await p.close();
+  },
+
   async lesson({ base, context }) {
     const p = await page(context);
     await p.goto(`${base}/experiments/lesson/`);

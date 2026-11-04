@@ -27,11 +27,37 @@ function labelWords(series) {
   return Object.keys(series.labels ?? {}).filter((k) => k !== '__name__').map((k) => series.labels[k]).join(' ');
 }
 
-function shortNames(list, fallback) {
+// Only the values that differ, as `upgrader no-energy`, in the order the query groups them by.
+function shortNames(list, fallback, query = '') {
   if (list.length === 1) return [fallback];
   const keys = [...new Set(list.flatMap((s) => Object.keys(s.labels)))].filter((k) => k !== '__name__');
-  const differ = keys.filter((k) => new Set(list.map((s) => s.labels[k])).size > 1);
-  return list.map((s) => differ.map((k) => (differ.length === 1 ? s.labels[k] : `${k}=${s.labels[k]}`)).join(' ') || s.name || fallback);
+  const said = /\bby\s*\(([^)]*)\)/.exec(query)?.[1].split(',').map((k) => k.trim()) ?? [];
+  const place = (k) => (said.includes(k) ? said.indexOf(k) : said.length);
+  const differ = keys.filter((k) => new Set(list.map((s) => s.labels[k])).size > 1).sort((a, b) => place(a) - place(b));
+  return list.map((s) => differ.map((k) => s.labels[k]).filter(Boolean).join(' ') || s.name || fallback);
+}
+
+// A rule covers the series that exist. One that stops while others carry on has ended, as a room's
+// does after a world reset, so it drops out. This says when the rule as a whole had nothing at all
+// to judge: the moments the count of series with data reached zero, and left it.
+function coverage(list) {
+  const events = [];
+  for (const { result } of list) {
+    for (const tr of result.transitions) {
+      const had = tr.from !== 'nodata', has = tr.to !== 'nodata';
+      if (had !== has) events.push({ t: tr.t, up: has });
+    }
+  }
+  // One series ending as another starts is not a gap.
+  events.sort((a, b) => a.t - b.t || b.up - a.up);
+  const changes = [];
+  let count = 0;
+  for (const { t, up } of events) {
+    count += up ? 1 : -1;
+    if (up && count === 1) changes.push({ t, to: 'ok' });
+    if (!up && count === 0) changes.push({ t, to: 'nodata' });
+  }
+  return changes;
 }
 
 // "api errors", not "api errors: errors".
@@ -124,18 +150,29 @@ export function createData(m) {
       const margin = st.rules + step * 3;
       const start = t0 - margin;
       const loaded = st.loaded;
+      const fine = Math.max(1, everyOf(st));
+      // On a long range the points are far apart, so the newest could be many minutes old while
+      // the shape reads as current. The last few points then come at the source's own pace. A step
+      // under twice the pace is only the pace rounded up to a step that stays aligned.
+      const askEdge = () => { if (m.time.live && step >= fine * 2) out.push({ st, kind: 'edge', query: { source: st.source, query: st.query, start: now - fine * 4, end: now, step: fine } }); };
+      const askTail = () => {
+        const from = now - Math.max(TAIL_SECONDS, st.rules + fine * 4);
+        out.push({ st, kind: 'tail', start: from, query: { source: st.source, query: st.query, start: from, end: now, step: fine } });
+      };
       const stale = !loaded || loaded.step !== step || start < loaded.start - step || (!m.time.live && t1 > loaded.end + step) || (m.time.live && loaded.end < start);
       if (stale) {
         // A range that failed to load is asked for again, at the pace of the source.
         if (st.viewFailed && now < st.nextAt) continue;
         out.push({ st, kind: 'view', step, start, query: { source: st.source, query: st.query, start, end: t1, step } });
+        askEdge();
+        // Arriving here paused, as switching tabs can: nothing is known about now, so ask straight away.
+        if (!m.time.live && !st.following) askTail();
       } else if (m.time.live && now >= st.nextAt) {
         const from = Math.max(start, loaded.end - step * 2);
         out.push({ st, kind: 'tailOfView', step, start: from, query: { source: st.source, query: st.query, start: from, end: now, step } });
+        askEdge();
       } else if (!m.time.live && now >= st.nextAt) {
-        const tailStep = Math.max(1, everyOf(st));
-        const from = now - Math.max(TAIL_SECONDS, st.rules + tailStep * 4);
-        out.push({ st, kind: 'tail', start: from, query: { source: st.source, query: st.query, start: from, end: now, step: tailStep } });
+        askTail();
       }
     }
     return out;
@@ -184,7 +221,7 @@ export function createData(m) {
     st.dropped = result.dropped ?? 0;
     if (result.ok) st.okAt = now;
     // A chart judges gaps by the spacing of its own points, whatever the tail is asking for.
-    if (result.interval) { if (ask.kind === 'tail') st.tailInterval = result.interval; else st.interval = result.interval; }
+    if (result.interval) { if (ask.kind === 'tail') st.tailInterval = result.interval; else if (ask.kind === 'edge') st.edgeInterval = result.interval; else st.interval = result.interval; }
     st.nextAt = now + Math.max(0.2, result.ok ? everyOf(st) : Math.max(everyOf(st), 2));
 
     // A failed answer replaces nothing: what was there stays, and staleness says how old it is.
@@ -200,6 +237,7 @@ export function createData(m) {
       if (result.ok) {
         st.series = new Map();
         st.order = [];
+        st.edgeInterval = null;
       }
     }
     const lane = ask.kind === 'tail' ? st.tail : st.series;
@@ -233,8 +271,10 @@ export function createData(m) {
 
   const gapFor = (interval) => Math.max(3 * (interval ?? DEFAULT_EVERY), 1.5);
   const gapAfterOf = (st) => gapFor(st.interval);
+  const freshGapOf = (st) => gapFor(m.time.live && st.edgeInterval ? st.edgeInterval : st.interval);
   const staleFor = (interval, binding) => binding?.stale ?? Math.max(3 * (interval ?? DEFAULT_EVERY), 5);
-  const staleAfterOf = (st, binding) => staleFor(st.interval, binding);
+  // A long range is drawn from points far apart, but what is true now comes from `edge` when it can.
+  const staleAfterOf = (st, binding) => staleFor(m.time.live && st.edgeInterval ? st.edgeInterval : st.interval, binding);
 
   // ---------------------------------------------------------------- the two lanes
 
@@ -247,9 +287,15 @@ export function createData(m) {
   // Leaving live. What is known about now is exactly what the page knew a moment ago, and the
   // whole history stays, because it says how long something has been firing.
   function startTail(st) {
+    const asked = st.tail;
     st.tail = new Map([...st.series].map(([id, series]) => [id, copySeries(series)]));
+    for (const [id, newer] of asked) {
+      const held = st.tail.get(id);
+      if (!held) st.tail.set(id, newer);
+      else if (newer.n) held.merge(Array.from(newer.t.subarray(0, newer.n)), Array.from(newer.v.subarray(0, newer.n)));
+    }
     st.seedInterval = st.interval;
-    st.tailInterval = st.interval;
+    if (!asked.size) st.tailInterval = st.interval;
     st.following = true;
     st.nextAt = 0;
   }
@@ -322,20 +368,34 @@ export function createData(m) {
       if (seen.has(sig)) continue;
       seen.add(sig);
       total++;
+      const name = nameOf(owner, binding);
+      const several = view.length > 1;
       for (const { id, result } of view) {
         for (const tr of result.transitions) {
           if (tr.from === 'nodata' && tr === result.transitions[0]) continue;
-          const words = changeWords(tr, nameOf(owner, binding));
-          if (words) transitions.push({ ...tr, ...words, name: nameOf(owner, binding), owner: owner.id, binding, series: id, key: `${rule.id}|${id}` });
+          // Among several, one series coming and going is not news. Below is when all of them did.
+          if (several && ((tr.from === 'ok' && tr.to === 'nodata') || (tr.from === 'nodata' && tr.to === 'ok'))) continue;
+          const words = changeWords(tr, name);
+          if (words) transitions.push({ ...tr, ...words, name, owner: owner.id, binding, series: id, key: `${rule.id}|${id}` });
         }
       }
-      // No series at all: a failed source, or nothing yet. It can't say, and it must not read as fine.
-      if (!nowLane.length) silent.push({ rule, binding, owner: owner.id, name: nameOf(owner, binding), series: '', key: `${rule.id}|`, since: null, state: 'nodata' });
+      if (several) {
+        coverage(view).forEach(({ t, to }, i) => {
+          if (i === 0 && to === 'ok') return;
+          const tr = { t, from: to === 'ok' ? 'nodata' : 'ok', to, rule };
+          transitions.push({ ...tr, ...changeWords(tr, name), name, owner: owner.id, binding, series: '', key: `${rule.id}|` });
+        });
+      }
       for (const { id, result } of nowLane) {
-        const entry = { rule, binding, owner: owner.id, name: nameOf(owner, binding), series: id, key: `${rule.id}|${id}`, since: result.since, state: result.state };
+        const entry = { rule, binding, owner: owner.id, name, series: id, key: `${rule.id}|${id}`, since: result.since, state: result.state };
         if (result.state === 'firing') firing.push(entry);
         else if (result.state === 'pending') pending.push(entry);
-        else if (result.state === 'nodata') silent.push(entry);
+      }
+      // No series with a number: a failed source, nothing yet, or all of them gone. It can't say, and
+      // it must not read as fine. That is one rule with no data, however many series it had.
+      if (!nowLane.some(({ result }) => result.state !== 'nodata')) {
+        const only = nowLane.length === 1 ? nowLane[0] : null;
+        silent.push({ rule, binding, owner: owner.id, name, series: only?.id ?? '', key: `${rule.id}|${only?.id ?? ''}`, since: only?.result.since ?? null, state: 'nodata' });
       }
     }
     // Which sources this drawing uses are failing, whether or not an alert depends on them.
@@ -361,7 +421,7 @@ export function createData(m) {
     const st = stateFor(binding, panelKind);
     if (!st) return [];
     const list = st.order.map((id) => ({ id, series: st.series.get(id) })).filter((row) => row.series);
-    const names = shortNames(list.map((row) => row.series), binding.name);
+    const names = shortNames(list.map((row) => row.series), binding.name, st.query);
     return list.map((row, i) => ({ ...row, name: names[i], labelled: labelWords(row.series), st }));
   }
 
@@ -385,8 +445,9 @@ export function createData(m) {
     // A source that is down now says nothing about a moment whose numbers arrived. But a rejected
     // query was never going to have numbers, and a range that failed to load was never seen.
     const failed = st.ok === false && (at === null || st.queryProblem || st.unknownSource || st.viewFailed);
-    const anyFresh = rows.some((r) => !r.stale);
-    return { rows, binding, st, failed, why: st.why, queryProblem: st.queryProblem, unknownSource: st.unknownSource, empty: st.empty, noData: !anyFresh, gap, staleAfter, at, waiting: st.ok === null };
+    // A series with nothing to say here has ended, or has not begun, if another is reporting.
+    const fresh = rows.filter((r) => !r.stale);
+    return { rows: fresh.length ? fresh : rows, binding, st, failed, why: st.why, queryProblem: st.queryProblem, unknownSource: st.unknownSource, empty: st.empty, noData: !fresh.length, gap, staleAfter, at, waiting: st.ok === null };
   }
 
   const resultsFor = (at) => (at === null && !m.time.live ? tailResults : results);
@@ -394,13 +455,14 @@ export function createData(m) {
   /** What one rule says at a moment, across its series: the worst of them. */
   function ruleState(rule, at) {
     const list = (resultsFor(at).get(rule.id) ?? []);
-    let best = null;
+    let best = null, silent = null;
     for (const { id, result } of list) {
       const state = at === null ? { state: result.state, since: result.since } : stateAt(result, at);
       const level = levelOf(rule, state.state);
-      if (!best || LEVELS[level].rank > LEVELS[best.level].rank) best = { ...state, level, series: id };
+      if (state.state === 'nodata') silent ??= { ...state, level, series: id };
+      else if (!best || LEVELS[level].rank > LEVELS[best.level].rank) best = { ...state, level, series: id };
     }
-    return best;
+    return best ?? silent;
   }
 
   /**
@@ -463,17 +525,29 @@ export function createData(m) {
   function ruleSpans(binding, t0, t1) {
     const spans = [];
     for (const rule of binding.rules) {
-      for (const { result } of results.get(rule.id) ?? []) {
+      const list = results.get(rule.id) ?? [];
+      const several = list.length > 1;
+      const add = (span) => { if (!several || span.level !== 'nodata') spans.push(span); };
+      for (const { result } of list) {
         let current = result.transitions.length ? null : { state: result.state, t: t0 };
         for (const tr of result.transitions) {
-          if (current && tr.t > t0) spans.push({ level: levelOf(rule, current.state), a: Math.max(t0, current.t), b: Math.min(t1, tr.t) });
+          if (current && tr.t > t0) add({ level: levelOf(rule, current.state), a: Math.max(t0, current.t), b: Math.min(t1, tr.t) });
           current = { state: tr.to, t: tr.t };
         }
-        if (current) spans.push({ level: levelOf(rule, current.state), a: Math.max(t0, current.t), b: t1 });
+        if (current) add({ level: levelOf(rule, current.state), a: Math.max(t0, current.t), b: t1 });
+      }
+      if (several) {
+        const changes = coverage(list);
+        let quietFrom = changes.length ? null : t0;
+        for (const { t, to } of changes) {
+          if (to === 'nodata') quietFrom = t;
+          else if (quietFrom !== null) { spans.push({ level: 'nodata', a: Math.max(t0, quietFrom), b: Math.min(t1, t) }); quietFrom = null; }
+        }
+        if (quietFrom !== null) spans.push({ level: 'nodata', a: Math.max(t0, quietFrom), b: t1 });
       }
     }
     return spans.filter((s) => s.b > s.a && s.a < t1);
   }
 
-  return { poll, reset, recompute, failure, rowName, seriesOf, readBinding, status, ruleState, ruleSpans, gapAfterOf, stateFor, everyOf, get lastRecompute() { return lastRecompute; }, get states() { return states; } };
+  return { poll, reset, recompute, failure, rowName, seriesOf, readBinding, status, ruleState, ruleSpans, gapAfterOf, freshGapOf, stateFor, everyOf, get lastRecompute() { return lastRecompute; }, get states() { return states; } };
 }

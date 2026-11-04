@@ -6,7 +6,7 @@
 // readable at any zoom and a small panel drops detail instead of shrinking it.
 
 import { LEVELS, worse } from './alerts.js';
-import { axisLabels, clock, fmtAgo, fmtValue, niceScale, showLevel, showValue, timeTicks } from './format.js';
+import { axisLabels, clock, fmtAgo, fmtValue, niceScale, showLevel, showValue, timeTicks, whenIn } from './format.js';
 import { nameOf, worstOfEach } from './data.js';
 import { gaps, trace } from './series.js';
 
@@ -65,9 +65,9 @@ const TITLE_SIZE = 18, SMALLEST_TITLE = 14;
 const FULL_HEIGHT = { chart: 80, stat: 52, meter: 66, table: 44, box: 44, alerts: 0, plain: 0 };
 
 /** Too small to hold a title at all: it shows its state and its number. */
-export const tooSmall = (panel, u) => { const r = innerRect(panel.el, u); return r.w / u < 110 || r.h / u < 26; };
+export const tooSmall = (panel, u) => { const r = innerRect(panel.el, u); return r.w / u < 72 || r.h / u < 26; };
 /** Room for a title and one number, and nothing else. */
-const isShort = (panel, u) => innerRect(panel.el, u).h / u < (FULL_HEIGHT[panel.kind] ?? 0);
+const isShort = (panel, u) => { const r = innerRect(panel.el, u); return r.h / u < (FULL_HEIGHT[panel.kind] ?? 0) || (r.w / u < 110 && !!FULL_HEIGHT[panel.kind]); };
 /** So short that the number has to sit beside the title. */
 const isVeryShort = (panel, u) => isShort(panel, u) && innerRect(panel.el, u).h / u < 44;
 
@@ -279,8 +279,18 @@ export function createPainter(m) {
   // the range changes. Only the first look ranks strictly.
   const CLEARLY_BIGGER = 1.25;
 
+  // A name means the same thing on every chart, so `hauler` is one color on all of them and on the
+  // other tabs of a group. The first chart to show a name picks its color, and later ones follow.
+  // Inside one chart, telling lines apart comes first: if two names there want one color, the
+  // second takes another for that chart. A line alone has nothing to be told apart from, so it
+  // stays the first color unless its name already has one, and it claims nothing.
+  const namedColors = new Map();
+
   function rankLines(panel, lines, t0, t1) {
-    const held = ranks.get(panel.id) ?? { order: [], slots: new Map(), seen: new Map() };
+    const held = ranks.get(panel.id) ?? { order: [], slots: new Map(), seen: new Map(), sharing: false };
+    const sharing = lines.length > 1;
+    const byKey = new Map(lines.map((line) => [line.key, line]));
+    const nameFor = (key) => { const line = byKey.get(key); return sharing ? line.name : line.labelled || line.name; };
     // Scores compare within a unit, since req/s and % can't be compared with each other.
     const peaks = new Map(), biggest = new Map();
     for (const line of lines) {
@@ -303,16 +313,28 @@ export function createPainter(m) {
     const places = (earning.length ? earning : order).slice(0, T.series.length);
     const slots = new Map();
     const taken = new Set();
-    const give = (key, slot) => { slots.set(key, slot); taken.add(slot); held.seen.set(key, slot); };
-    for (const key of places) if (held.slots.has(key)) give(key, held.slots.get(key));
+    const give = (key, slot) => {
+      slots.set(key, slot);
+      taken.add(slot);
+      held.seen.set(key, slot);
+      if (sharing && !namedColors.has(nameFor(key))) namedColors.set(nameFor(key), slot);
+    };
+    // A line alone follows its name, and a chart that had one line and now has several chooses afresh.
+    if (sharing && held.sharing) for (const key of places) if (held.slots.has(key)) give(key, held.slots.get(key));
+    for (const key of places) {
+      const named = namedColors.get(nameFor(key));
+      if (!slots.has(key) && named !== undefined && !taken.has(named)) give(key, named);
+    }
     for (const key of places) if (!slots.has(key) && held.seen.has(key) && !taken.has(held.seen.get(key))) give(key, held.seen.get(key));
     for (const key of places) {
       if (slots.has(key)) continue;
-      let slot = 0;
-      while (taken.has(slot)) slot++;
+      // A color no other name has, if there is one left, so different names look different.
+      const claimed = sharing ? new Set(namedColors.values()) : new Set();
+      let slot = T.series.findIndex((_, i) => !taken.has(i) && !claimed.has(i));
+      if (slot < 0) slot = T.series.findIndex((_, i) => !taken.has(i));
       give(key, slot);
     }
-    ranks.set(panel.id, { order, slots, seen: held.seen });
+    ranks.set(panel.id, { order, slots, seen: held.seen, sharing });
     return { order, slots };
   }
 
@@ -566,11 +588,12 @@ export function createPainter(m) {
     paintZoomBand(panel, c);
   }
 
-  function readAtCursor(line, at) {
-    const when = m.time.cursor ?? at;
+  const readAtCursor = (line, at) => readAt(line, m.time.cursor ?? at);
+
+  function readAt(line, when) {
     if (when === null || when === undefined) {
       const p = line.series.latest();
-      const staleAfter = m.data.gapAfterOf(line.st);
+      const staleAfter = m.data.freshGapOf(line.st);
       if (!p) return null;
       if (m.time.live && m.now() - p.t > Math.max(staleAfter, line.binding.stale ?? 0)) return null;
       return p;
@@ -583,11 +606,18 @@ export function createPainter(m) {
     let x = r.x + 4 * u;
     const right = r.x + r.w;
     let shown = 0;
-    const named = c.lines.filter((l) => !l.other);
+    // Biggest first by the number at this moment, so the legend reads as a ranking and space goes to
+    // what is largest now. Units can't be compared, so each keeps its place. Moving the pointer over a
+    // chart changes the numbers, not this order, so the legend holds still under a sweep.
+    const units = [...new Set(c.lines.map((l) => l.unit))];
+    const sizeOf = (line) => readAt(line, at)?.v ?? -Infinity;
+    const named = c.lines.filter((l) => !l.other).sort((a, b) => units.indexOf(a.unit) - units.indexOf(b.unit) || sizeOf(b) - sizeOf(a));
+    // A series with nothing to say here has ended, or has not begun, if another is reporting.
+    const someReport = named.some((line) => readAtCursor(line, at));
     // With no room for every series and its unit, the units go first: the axis has them too.
     const words = (line, withUnit) => {
       const point = readAtCursor(line, at);
-      if (!point) return 'no data';
+      if (!point) return someReport ? '' : 'no data';
       return withUnit ? showValue(point.v, line.unit) : fmtValue(point.v, line.unit).text;
     };
     const need = (withUnit) => named.reduce((sum, line) => {
@@ -730,14 +760,19 @@ export function createPainter(m) {
     if (x === null) return;
     const rows = [];
     for (const strip of c.strips) {
+      const inStrip = [];
       for (const { line: l, gapAfter } of strip.marks) {
         if (l.other) continue;
         const p = l.series.at(m.time.cursor, gapAfter);
-        rows.push({ line: l, point: p });
+        inStrip.push({ line: l, point: p });
         if (p) endDot(X(p.t), strip.Y(p.v), l.color);
       }
+      // Biggest first at the time under the pointer, within a unit.
+      rows.push(...inStrip.sort((a, b) => (b.point?.v ?? -Infinity) - (a.point?.v ?? -Infinity)));
     }
-    if (rows.length) paintTooltip(c, x, top, rows, hovered, panel);
+    // As in the legend: while another series has a number here, this one simply isn't there.
+    const reporting = rows.filter((row) => row.point);
+    if (rows.length) paintTooltip(c, x, top, reporting.length ? reporting : rows, hovered, panel);
   }
 
   // One tooltip, every series. On the chart under the pointer it has the time too.
@@ -951,7 +986,7 @@ export function createPainter(m) {
       if (y + rowH > bottom) break;
       const level = f.rule.level;
       icon(LEVELS[level].icon, r.x + 8 * u, y, 13, levelColor(T, level));
-      const when = at === null && f.since ? `for ${fmtAgo(m.now() - f.since + f.rule.for)}` : f.since ? `since ${clock(f.since, false)}` : '';
+      const when = at === null && f.since ? `for ${fmtAgo(m.now() - f.since + f.rule.for)}` : f.since ? `since ${whenIn(f.since, m.time.span, false)}` : '';
       const timeW = label(when, r.x + r.w, y, { size: 12, color: T.muted, align: 'right', base: 'middle' });
       label(fit(`${f.name} ${f.rule.op} ${showLevel(f.rule.value, f.binding.unit)}`, r.w - timeW - 30 * u, 13), r.x + 22 * u, y, { size: 13, base: 'middle' });
       hot.push({ x: r.x, y: y - rowH / 2, w: r.w, h: rowH, select: f.owner, at: f.since ?? null });
@@ -966,7 +1001,7 @@ export function createPainter(m) {
       for (const tr of recent) {
         if (y + rowH / 2 > bottom) break;
         icon(LEVELS[tr.level].icon, r.x + 8 * u, y, 12, levelColor(T, tr.level));
-        const timeW = label(clock(tr.t), r.x + r.w, y, { size: 12, color: T.muted, align: 'right', base: 'middle' });
+        const timeW = label(whenIn(tr.t, m.time.span), r.x + r.w, y, { size: 12, color: T.muted, align: 'right', base: 'middle' });
         label(fit(tr.words, r.w - timeW - 30 * u, 12), r.x + 22 * u, y, { size: 12, color: T.text2, base: 'middle' });
         hot.push({ x: r.x, y: y - rowH / 2, w: r.w, h: rowH, select: tr.owner, at: tr.t });
         y += rowH;
@@ -1225,5 +1260,5 @@ export function createPainter(m) {
     }
   }
 
-  return { paint, firingAt, forget: () => { cache.clear(); sparks.clear(); }, forgetRanks: () => ranks.clear(), get readouts() { return readouts; } };
+  return { paint, firingAt, forget: () => { cache.clear(); sparks.clear(); }, forgetRanks: ({ keepColors = false } = {}) => { ranks.clear(); if (!keepColors) namedColors.clear(); }, get readouts() { return readouts; } };
 }

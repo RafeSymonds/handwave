@@ -9,7 +9,7 @@ import { parseScene, text as textElement } from '/lib/draw.js';
 import { infer } from '../machine/graph.js';
 import { settle } from '../machine/edit.js';
 import { LEVELS, stateAt } from './alerts.js';
-import { clock, dayClock, fmtAgo, showLevel, showValue, timeTicks } from './format.js';
+import { clock, dayClock, fmtAgo, showLevel, showValue, timeTicks, whenIn } from './format.js';
 import { levelColor } from './panels.js';
 import { readDashboard, usesSource } from './read.js';
 import { PANEL_NAMES, PARTS, readLabel, suggest, WORDS } from './vocab.js';
@@ -78,7 +78,7 @@ export function createUi(m) {
 
   function renderTime() {
     const { t0, t1 } = m.range();
-    document.getElementById('range').textContent = `${t1 - t0 > 86400 ? dayClock(t0, false) : clock(t0)} to ${t1 - t0 > 86400 ? dayClock(t1, false) : clock(t1)}`;
+    document.getElementById('range').textContent = `${whenIn(t0, t1 - t0)} to ${whenIn(t1, t1 - t0)}`;
     const updated = document.getElementById('updated');
     const at = m.link?.at;
     const late = m.link?.ok === false || (at && m.now() - at > 15);
@@ -89,6 +89,20 @@ export function createUi(m) {
     live.classList.toggle('on', !m.time.live);
     for (const b of document.querySelectorAll('[data-span]')) b.classList.toggle('on', Number(b.dataset.span) === m.time.span);
     document.getElementById('btn-zoomout').disabled = false;
+  }
+
+  // The other dashboards in this one's group, a click away. They are links, so a tab can be
+  // opened on its own or sent to someone, and the browser's back and forward walk through them.
+  const tabs = document.getElementById('tabs');
+  let tabsDrawn = null;
+  function renderTabs() {
+    const group = m.scenes?.find((s) => s.id === m.sceneId)?.group;
+    const list = group ? m.scenes.filter((s) => s.group === group) : [];
+    const key = list.length > 1 ? `${group}|${m.sceneId}` : '';
+    if (key === tabsDrawn) return;
+    tabsDrawn = key;
+    tabs.hidden = !key;
+    tabs.innerHTML = key ? list.map((s) => `<a href="#${h(s.id)}"${s.id === m.sceneId ? ' aria-current="page"' : ''}>${h(s.title)}</a>`).join('') : '';
   }
 
   function firingSummary() {
@@ -229,15 +243,15 @@ export function createUi(m) {
     if (read.failed) valueWords = `<span class="bad">${h(m.data.failure(b, read))}</span>`;
     else if (!read.rows.length) valueWords = read.waiting ? 'waiting...' : read.empty ? h(read.empty) : 'no numbers';
     else if (row.value === null || row.stale) valueWords = at !== null ? 'no data at that moment' : row.t ? `no data for ${h(fmtAgo(row.age))}. The last number was ${h(showValue(row.value ?? 0, b.unit))}.` : 'no data yet';
-    else valueWords = `<b>${h(showValue(row.value, b.unit))}</b> at ${h(clock(row.t))}${read.rows.length > 1 ? `, and ${read.rows.length - 1} more series` : ''}`;
+    else valueWords = `<b>${h(showValue(row.value, b.unit))}</b> at ${h(whenIn(row.t, m.time.span))}${read.rows.length > 1 ? `, and ${read.rows.length - 1} more series` : ''}`;
     const rules = b.rules.map((rule) => {
       const state = m.data.ruleState(rule, at);
       const level = state?.level ?? 'nodata';
-      return `<div class="means">${iconOf(level)} ${h(rule.text)}: now ${h(state ? state.state : 'no data')}${state?.since ? ` since ${h(clock(state.since))}` : ''}</div>`;
+      return `<div class="means">${iconOf(level)} ${h(rule.text)}: now ${h(state ? state.state : 'no data')}${state?.since ? ` since ${h(whenIn(state.since, m.time.span))}` : ''}</div>`;
     }).join('');
     return `<li class="binding" data-binding="${h(b.id)}"><code>${h(b.text)}</code>
       <span class="means">The number "${h(b.name)}"${b.unit ? `, in ${h(b.unit)}` : ', with no unit'}. From ${h(b.source)}${sourceWords ? ` (${h(sourceWords)})` : ''}, every ${h(fmtAgo(read.st?.interval ?? m.catalog.get(b.source)?.every ?? 5))}.</span>
-      <div class="value">${valueWords}</div>${read.st?.dropped ? `<div class="means">Only the largest ${read.rows.length} of its ${read.rows.length + read.st.dropped} series are kept.</div>` : ''}${rules}</li>`;
+      <div class="value">${valueWords}</div>${read.st?.dropped ? `<div class="means">Only the largest ${read.st.series.size} of its ${read.st.series.size + read.st.dropped} series are kept.</div>` : ''}${rules}</li>`;
   }
 
   function troubles(owner) {
@@ -256,7 +270,7 @@ export function createUi(m) {
       for (const row of read.rows.slice(0, 12)) rows.push(`<tr><td>${h(m.data.rowName(read, row))}</td><td>${row.value === null || row.stale ? 'no data' : h(showValue(row.value, b.unit))}</td></tr>`);
     }
     if (!rows.length) return '';
-    return `<h4>${at !== null ? `Values at ${h(clock(at))}` : 'Values now'}</h4><table><tbody>${rows.join('')}</tbody></table>`;
+    return `<h4>${at !== null ? `Values at ${h(whenIn(at, m.time.span))}` : 'Values now'}</h4><table><tbody>${rows.join('')}</tbody></table>`;
   }
 
   function changesOn(owner) {
@@ -265,7 +279,7 @@ export function createUi(m) {
     return `<h4>What changed in this range</h4><ul>${list.map((tr) => changeRow(tr)).join('')}</ul>`;
   }
 
-  const changeRow = (tr) => `<li><button class="list-button" data-at="${tr.t}" data-select="${h(tr.owner)}"><em>${iconOf(tr.level)} ${h(tr.words)}</em><span>${h(clock(tr.t))}</span></button></li>`;
+  const changeRow = (tr) => `<li><button class="list-button" data-at="${tr.t}" data-select="${h(tr.owner)}"><em>${iconOf(tr.level)} ${h(tr.words)}</em><span>${h(whenIn(tr.t, m.time.span))}</span></button></li>`;
 
   function ownerView(owner, place) {
     const info = place === 'arrow' ? null : PANEL_NAMES[owner.kind];
@@ -348,7 +362,7 @@ export function createUi(m) {
     insp.innerHTML = `
       <h3>This dashboard</h3>
       <p class="why">${h([...m.dash.panels.values()].filter((p) => p.kind !== 'plain').length)} panels, ${h(m.dash.queries.size)} numbers, ${h(m.ruleCount)} alert rules. Click anything to see what it is bound to.</p>
-      <h4>${m.viewAt() !== null ? `Firing at ${h(clock(m.viewAt()))}` : 'Firing now'}</h4>
+      <h4>${m.viewAt() !== null ? `Firing at ${h(whenIn(m.viewAt(), m.time.span))}` : 'Firing now'}</h4>
       ${firingRows ? `<ul id="insp-firing">${firingRows}</ul>` : `<p class="why" id="insp-firing">Nothing.</p>`}
       ${changes ? `<h4>What changed in this range</h4><ul id="insp-changes">${changes}</ul>` : ''}
       ${issues.length ? `<h4>Worth fixing</h4><ul>${issues.map((i) => `<li class="bad">${h(i.message)}</li>`).join('')}</ul>` : ''}
@@ -639,6 +653,7 @@ export function createUi(m) {
   // ---------------------------------------------------------------- wiring
 
   function refresh() {
+    renderTabs();
     renderTime();
     renderFiring();
     renderLooking();

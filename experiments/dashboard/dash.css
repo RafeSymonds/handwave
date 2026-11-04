@@ -40,6 +40,12 @@ code { font-family: var(--code); font-size: 13px; }
 #bar .group { display: flex; align-items: center; gap: 4px; }
 #bar .presets { display: inline-flex; gap: 2px; margin: 0 2px; }
 #bar .presets button { padding: 3px 7px; }
+#tabs { order: 10; flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px; }
+#tabs[hidden] { display: none; }
+#tabs a { font-family: var(--hand); font-size: 16px; color: inherit; text-decoration: none; padding: 1px 12px; border: 1.5px solid var(--line); border-radius: var(--drawn); }
+#tabs a:hover { background: var(--gray-fill); }
+#tabs a:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+#tabs a[aria-current] { background: var(--blue-fill); border-color: var(--blue); color: var(--blue); }
 #title { font-family: var(--hand); font-size: 19px; white-space: nowrap; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; }
 #clock { display: inline-flex; flex-direction: column; font-size: 12.5px; line-height: 1.2; color: var(--text2); font-variant-numeric: tabular-nums; min-width: 17ch; }
 #updated { color: var(--muted); }

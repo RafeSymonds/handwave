@@ -119,7 +119,8 @@ Grafana still does far more: dozens of sources, query builders, teams and months
 Here alerts only evaluate while a page is open, nothing sends a notification, and the
 dashboard only answers the machine it runs on, so a wall screen needs its own server.
 [`experiments/dashboard/README.md`](experiments/dashboard/README.md) has every word and
-every gap.
+every gap, and how to [connect another project and keep its
+history](experiments/dashboard/README.md#connecting-another-project).
 
 ## Platformer
 
@@ -222,8 +223,8 @@ These are experiments, and their tests can only prove so much:
   binding of their saved files. The platformer's levels open in Excalidraw's renderer.
   No file drawn by hand on excalidraw.com has been run here.
 - **Real monitoring.** The dashboards have been checked by hand against one real
-  Prometheus on macOS, which scraped only itself, and otherwise against a fake one. Nobody
-  has used them during an incident, and nothing has run for days.
+  Prometheus on macOS, which scraped only itself and a small test service, and otherwise
+  against a fake one. Nobody has used them during an incident, and nothing has run for days.
 
 ## Layout
 

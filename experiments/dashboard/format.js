@@ -96,6 +96,9 @@ export const dayClock = (t, seconds = true) => {
   return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${clock(t, seconds)}`;
 };
 
+/** A time on a range this long. A day or more needs the date to say which one. */
+export const whenIn = (t, span, seconds = true) => (span >= 86400 ? dayClock(t, false) : clock(t, seconds));
+
 /** A length of time in the fewest words that are still exact enough: 45s, 2m 13s, 12m, 1h 4m. */
 export function fmtAgo(seconds) {
   const s = Math.max(0, Math.round(seconds));
@@ -108,12 +111,22 @@ export function fmtAgo(seconds) {
   return `${Math.floor(h / 24)}d ${h % 24}h`;
 }
 
-const TIME_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400];
+const TIME_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400, 172800, 259200, 432000, 604800, 864000];
 
 /** Ticks on round clock times, no more than `most` of them. */
 export function timeTicks(t0, t1, most = 6) {
   const span = t1 - t0;
   const step = TIME_STEPS.find((s) => span / s <= most) ?? span / most;
+  // Days are counted on the calendar, so a tick stays on midnight when the clocks change.
+  if (step >= 86400) {
+    const days = Math.max(1, Math.round(step / 86400));
+    const d = new Date(t0 * 1000);
+    d.setHours(0, 0, 0, 0);
+    if (d.getTime() / 1000 < t0) d.setDate(d.getDate() + 1);
+    const ticks = [];
+    for (; d.getTime() / 1000 <= t1 + 1e-6; d.setDate(d.getDate() + days)) ticks.push({ t: d.getTime() / 1000, label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) });
+    return { step, ticks };
+  }
   const offset = new Date(t0 * 1000).getTimezoneOffset() * 60;
   const first = Math.ceil((t0 - offset) / step) * step + offset;
   const ticks = [];

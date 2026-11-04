@@ -31,7 +31,9 @@ export function replay(rule, series, { gapAfter, staleAfter = gapAfter, until = 
     crossed ??= at;
     go(at - crossed >= rule.for ? 'firing' : 'pending', at, value);
   }
-  if (last !== null && until - last > staleAfter) go('nodata', last + staleAfter, null);
+  // Going quiet is noticed at the source's pace. But if it stopped long ago, it is only known to
+  // the spacing of these points, and saying sooner would invent a gap before whatever came next.
+  if (last !== null && until - last > staleAfter) go('nodata', last + (until - last > gapAfter ? Math.max(staleAfter, gapAfter) : staleAfter), null);
   return { transitions, state, since, crossed };
 }
 

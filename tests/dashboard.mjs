@@ -245,6 +245,16 @@ section('the rules, with no browser');
   check('every simulated metric has a value', Object.keys(SIM_METRICS).every((id) => typeof simValue(id, 1000) === 'number'));
 }
 
+{
+  const wide = new Series('wide');
+  wide.merge([1000, 1300, 1600], [1, 1, 1]);
+  const rule = { level: 'warn', op: 'above', value: 5, for: 0 };
+  const longGone = replay(rule, wide, { gapAfter: 900, staleAfter: 15, until: 9000 }).transitions.at(-1);
+  check('a series that stopped long ago is known to stop only to the spacing of its points', longGone.to === 'nodata' && longGone.t === 2500, longGone);
+  const justNow = replay(rule, wide, { gapAfter: 900, staleAfter: 15, until: 1620 }).transitions.at(-1);
+  check('one that has just gone quiet is noticed at the source\'s pace', justNow.to === 'nodata' && justNow.t === 1615, justNow);
+}
+
 // ===========================================================================
 section('security: routes, config and credentials');
 
@@ -668,6 +678,36 @@ await openDrawing([{ id: 'twoz', x: 40, y: 40, w: 900, h: 300, label: 'two\nchar
 const twoWords = await wordsUntil('twoz', (w) => w.includes('a') && w.includes('b'), 'both names in the legend');
 const twoColors = await app(() => window.app.plotOf('twoz').strips[0].colors);
 check('with 8 or fewer series, a series at zero keeps its color and its name', new Set(twoColors).size === 2 && !twoColors.includes(gray), { twoColors, twoWords });
+
+// As a real chart showed: worker was large earlier and has fallen, so its peak outranks builder's
+// although builder is bigger now. The legend reads as a ranking of what it shows.
+const fellAt = nowS() - 120;
+prom.series.set('by_role', [
+  { metric: { role: 'hauler' }, fn: () => 63 }, { metric: { role: 'miner' }, fn: () => 36 },
+  { metric: { role: 'worker' }, fn: (t) => (t < fellAt ? 23 : 8) }, { metric: { role: 'builder' }, fn: () => 17 },
+  ...['claimer', 'scout', 'guard', 'healer', 'upgrader'].map((role, i) => ({ metric: { role }, fn: () => i + 1 })),
+]);
+await openDrawing([{ id: 'roles', x: 40, y: 40, w: 1100, h: 420, label: 'creeps by role\nchart\nprod: by_role in creeps' }], { span: 600 });
+const roleWords = await wordsUntil('roles', (w) => w.includes('hauler') && w.includes('63 creeps'), 'the legend by role');
+const legendOrder = roleWords.filter((x) => ['hauler', 'miner', 'worker', 'builder', 'claimer', 'scout', 'guard', 'healer', 'upgrader'].includes(x));
+check('a legend lists series by the number it shows, biggest first', legendOrder.slice(0, 4).join() === 'hauler,miner,builder,worker', legendOrder);
+const roleColors = await app(() => { const s = window.app.plotOf('roles').strips[0]; return Object.fromEntries(s.names.map((n, i) => [n, s.colors[i]])); });
+check('colors stay with their series, whatever the legend\'s order', roleColors.worker !== roleColors.builder && roleColors.hauler !== roleColors.miner && await app(() => window.app.plotOf('roles').strips[0].names.indexOf('worker') < window.app.plotOf('roles').strips[0].names.indexOf('builder')), roleColors);
+// Worker was the bigger of the two before it fell, and is the smaller after. The numbers themselves
+// are the test: a tooltip with no values would keep any order at all. Older points may still be on
+// their way when a range has just widened.
+const hoverOn = async (t, want) => {
+  const at = await app((when) => { const a = window.app; const c = a.plotOf('roles'); return a.toScreen(c.plotX + c.plotW * ((when - c.t0) / (c.t1 - c.t0)), c.strips[0].y + c.strips[0].h / 2); }, t);
+  await p.mouse.move(at.x, at.y, { steps: 3 });
+  return until(({ t: when, want: words }) => { const w = window.app.readouts('roles'); const c = window.app.m.time.cursor; return c !== null && Math.abs(c - when) < 10 && !w.includes('no data') && w.includes(words) && w; }, `the tooltip to show ${want}`, 10, { t, want });
+};
+const beforeFall = await hoverOn(fellAt - 200, '23 creeps');
+check('the tooltip lists series by the number under the pointer', beforeFall.lastIndexOf('23 creeps') < beforeFall.lastIndexOf('17 creeps'), beforeFall.slice(-16));
+const hoverLegend = beforeFall.filter((x) => ['hauler', 'miner', 'worker', 'builder'].includes(x)).slice(0, 4);
+check('while the legend keeps its order under the pointer', hoverLegend.join() === 'hauler,miner,builder,worker', hoverLegend);
+const afterFall = await hoverOn(nowS() - 30, '8 creeps');
+check('and at a time when the order was the other way round, the tooltip follows', afterFall.lastIndexOf('17 creeps') < afterFall.lastIndexOf('8 creeps'), afterFall.slice(-16));
+await p.mouse.move(5, 5);
 
 // A legend at every width, on the shape that showed "/-/healthy 0-60 more": whatever fits, the
 // last value stops short of the count, and the count is always there.
@@ -1831,6 +1871,363 @@ const moving = await p.evaluate(async () => {
 });
 console.log('    checkout with its dots moving:', JSON.stringify(moving));
 check('moving dots hold the frame rate', moving.intervalP95 < 34 && moving.renderP95 < 20, moving);
+
+// ===========================================================================
+section('tabs: dashboards that share a group');
+
+const tabLinks = () => app(() => [...document.querySelectorAll('#tabs a')].map((a) => ({ words: a.textContent, href: a.getAttribute('href'), current: a.getAttribute('aria-current') === 'page' })));
+const timeNow = () => app(() => { const t = window.app.m.time; return { live: t.live, span: t.span, end: t.end, at: t.at }; });
+const clickTab = async (id) => {
+  const b = await p.locator(`#tabs a[href="#${id}"]`).boundingBox();
+  await p.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+  await until((i) => window.app.m.sceneId === i && [...window.app.m.data.states.values()].some((st) => st.ok !== null), `tab ${id} to open`, 20, id);
+};
+
+await p.goto(`${DASH}#checkout`);
+await p.reload();
+await until(() => window.app?.m.sceneId === 'checkout', 'checkout to open');
+const firstTabs = await tabLinks();
+check('scenes in one group show as tabs, in the order of scenes.json', firstTabs.map((x) => x.href).join() === '#checkout,#look-back' && firstTabs[0].current && !firstTabs[1].current, firstTabs);
+const heightWithTabs = await app(() => document.getElementById('stage').getBoundingClientRect().height);
+await shot('28-tabs');
+
+await p.click('[data-span="21600"]');
+await p.keyboard.press(' ');
+const momentAt = await app(() => { const r = window.app.m.range(); const at = r.t1 - 3600; window.app.setMoment(at); return at; });
+const beforeSwitch = await timeNow();
+check('the range is paused at a moment before switching', !beforeSwitch.live && beforeSwitch.at === momentAt && beforeSwitch.span === 21600, beforeSwitch);
+
+await clickTab('look-back');
+check('a tab changes the address, so it can be linked', new URL(p.url()).hash === '#look-back', p.url());
+check('a tab keeps the range, the pause and the moment, over the span of the scene it opens', JSON.stringify(await timeNow()) === JSON.stringify(beforeSwitch), await timeNow());
+const tabPill = [];
+for (let i = 0; i < 12; i++) { tabPill.push(await app(() => document.getElementById('firing').textContent)); await sleep(150); }
+check('arriving paused, the top bar does not call anything "no data"', !tabPill.some((w) => /no data/.test(w)), [...new Set(tabPill)]);
+check('the current tab is marked', (await tabLinks()).find((x) => x.current)?.href === '#look-back');
+
+await p.goBack();
+await until(() => window.app.m.sceneId === 'checkout', 'back to go to checkout');
+check('back returns to the last tab, keeping the time', JSON.stringify(await timeNow()) === JSON.stringify(beforeSwitch), await timeNow());
+await p.goForward();
+await until(() => window.app.m.sceneId === 'look-back', 'forward to go to look-back');
+check('forward goes again', new URL(p.url()).hash === '#look-back' && JSON.stringify(await timeNow()) === JSON.stringify(beforeSwitch));
+
+// Two quick clicks: the page ends on the last one, whichever file arrived first.
+await p.route('**/scenes/checkout.excalidraw', async (route) => { await sleep(600); await route.continue(); });
+await p.evaluate(() => { location.hash = '#checkout'; location.hash = '#look-back'; });
+await sleep(1200);
+await p.unroute('**/scenes/checkout.excalidraw');
+check('a slow tab can not replace the one clicked after it', await app(() => window.app.m.sceneId) === 'look-back' && new URL(p.url()).hash === '#look-back', await app(() => window.app.m.sceneId));
+
+// A change to a tab survives going to another one and back.
+await clickTab('checkout');
+const editedId = await app(() => window.app.dash.panels.keys().next().value);
+const shapesBefore = await app(() => window.app.doc.length);
+await app((i) => window.app.select(i), editedId);
+await p.keyboard.press('Delete');
+check('an edit is made on a tab', await app(() => window.app.doc.length) < shapesBefore);
+const shapesEdited = await app(() => window.app.doc.length);
+await clickTab('look-back');
+await clickTab('checkout');
+check('an edited tab is still edited after visiting another', await app(() => window.app.doc.length) === shapesEdited);
+await app(() => window.app.undo());
+check('and undo still reaches back through its edits', await app(() => window.app.doc.length) === shapesBefore);
+
+// The first open of a link, and the gallery, still use the scene's own span.
+await p.goto(`${DASH}#look-back`);
+await p.reload();
+await until(() => window.app?.m.sceneId === 'look-back', 'a linked tab to open');
+check('a link opens that tab live, on its own span', (await timeNow()).span === 3600 && (await timeNow()).live && (await tabLinks()).length === 2, await timeNow());
+
+await p.goto(`${DASH}#blank`);
+await p.reload();
+await until(() => window.app?.m.doc.length === 0, 'a blank board');
+check('a board that is not in a group has no tabs', (await tabLinks()).length === 0 && await app(() => document.getElementById('tabs').hidden));
+const heightNoTabs = await app(() => document.getElementById('stage').getBoundingClientRect().height);
+check('the stage takes the room the tabs leave', heightNoTabs > heightWithTabs, { heightNoTabs, heightWithTabs });
+await p.goto(`${DASH}#grid`);
+await p.reload();
+await until(() => window.app?.m.sceneId === 'grid', 'a scene alone in its group');
+check('a scene alone in its group has no tabs', (await tabLinks()).length === 0);
+
+// As another project's scenes.json would be, with a span in words.
+await p.route('**/scenes/scenes.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify([
+  { id: 'checkout', group: 'ours', title: 'first', summary: '', span: '7d' },
+  { id: 'grid', group: 'ours', title: 'second', summary: '', span: 2592000 },
+  { id: 'wall', group: 'ours', title: 'third', summary: '', span: 'nonsense' },
+]) }));
+await p.goto(`${DASH}#checkout`);
+await p.reload();
+await until(() => window.app?.m.sceneId === 'checkout', 'a scene with a span in words');
+check('a scene\'s span can be words such as 7d', (await timeNow()).span === 604800, await timeNow());
+check('tabs are named by their titles', (await tabLinks()).map((x) => x.words).join() === 'first,second,third', await tabLinks());
+await p.goto(`${DASH}#grid`);
+await p.reload();
+await until(() => window.app?.m.sceneId === 'grid', 'a scene with a span in seconds');
+check('a scene\'s span can be seconds, up to 30 days', (await timeNow()).span === 2592000, await timeNow());
+await p.unroute('**/scenes/scenes.json');
+
+// ===========================================================================
+section('long ranges');
+
+await p.goto(`${DASH}#blank`);
+await p.reload();
+await until(() => window.app?.m.doc.length === 0, 'a blank board');
+let longValue = 5, longStops = Infinity;
+prom.series.set('long_metric', (t) => (t >= longStops ? null : longValue));
+prom.calls.length = 0;
+await openDrawing([
+  { id: 'lb', x: 40, y: 40, w: 420, h: 220, label: 'long\nprod: long_metric in jobs\nwarn above 50 for 5s' },
+  { id: 'lc', x: 500, y: 40, w: 700, h: 300, label: 'long chart\nchart\nprod: long_metric in jobs' },
+], { name: 'long.excalidraw' });
+for (const [words, seconds] of [['3d', 259200], ['7d', 604800], ['30d', 2592000]]) {
+  await p.click(`[data-span="${seconds}"]`);
+  check(`the ${words} preset is ${seconds} seconds and shows as on`, (await timeNow()).span === seconds && await app((s) => document.querySelector(`[data-span="${s}"]`).classList.contains('on'), seconds));
+}
+await wordsUntil('lb', (w) => w.includes('5'), 'a number on a 30 day range', 20);
+const longCalls = prom.calls.filter((c) => c.path === '/api/v1/query_range' && c.query === 'long_metric');
+const widest = longCalls.reduce((a, c) => (c.end - c.start > a.end - a.start ? c : a));
+check('a 30 day range is asked for at 15 minute steps, within what the server allows', widest.step === 900 && widest.end - widest.start > 2592000 && widest.end - widest.start < 31 * 86400, { step: widest.step, days: (widest.end - widest.start) / 86400 });
+check('the 30 day range draws with no failure', (await statusOf('lb')).level === 'ok', await statusOf('lb'));
+
+// A number that changes shows at once, and data that stops is noticed at the source's pace,
+// though the chart's own points are 15 minutes apart.
+longValue = 9;
+await wordsUntil('lb', (w) => w.includes('9'), 'a new number on a 30 day range', 6);
+check('a 30 day range still asks for the last few points at the source\'s pace', prom.calls.some((c) => c.query === 'long_metric' && c.step === 1 && c.end - c.start <= 5));
+await shot('29-thirty-days');
+longStops = nowS();
+const stopWait = Date.now();
+await statusUntil('lb', 'nodata', 12);
+check('on a 30 day range, data that stops reads as no data within seconds, not 45 minutes', Date.now() - stopWait < 12000, Date.now() - stopWait);
+const chartStopped = await wordsUntil('lc', (w) => !w.some((x) => /^9/.test(x)), 'the chart\'s number to stop too', 12);
+check('and a chart\'s own number stops at the same pace', !chartStopped.some((x) => /^9/.test(x)), chartStopped);
+longStops = Infinity;
+await statusUntil('lb', 'ok', 12);
+
+await p.click('[data-span="86400"]');
+const dayRange = await until(() => { const w = document.getElementById('range').textContent; const [a, b] = w.split(' to '); return a !== b && /[A-Z][a-z]+ \d+/.test(a) && w; }, 'the 24h range to name its days');
+check('the 24h range names its days, so its two ends read differently', true, dayRange);
+await app(() => window.app.setSpan(604800));
+for (let i = 0; i < 5; i++) await p.click('#btn-zoomout');
+check('zoom out stops at 30 days', (await timeNow()).span === 2592000, await timeNow());
+const dayTicks = await app(() => window.app.plotOf('lc')?.t0 !== undefined);
+check('a 30 day chart has a plot', dayTicks);
+const longTape = await app(() => { const c = document.getElementById('tape'); return c.width > 0; });
+check('the time strip draws at 30 days', longTape);
+
+const { timeTicks } = await import('../experiments/dashboard/format.js');
+const monthTicks = timeTicks(Date.parse('2026-10-05T12:00:00') / 1000, Date.parse('2026-11-04T12:00:00') / 1000, 6);
+const atMidnight = monthTicks.ticks.every((x) => { const d = new Date(x.t * 1000); return d.getHours() === 0 && d.getMinutes() === 0; });
+check('ticks over a month fall on midnight, across a change of clocks', atMidnight && monthTicks.ticks.length <= 7 && monthTicks.ticks.length >= 3, monthTicks.ticks.map((x) => x.label));
+check('ticks over a month name days', /^[A-Z][a-z]+ \d+$/.test(monthTicks.ticks[0].label), monthTicks.ticks[0].label);
+
+// ===========================================================================
+section('series that end');
+
+const silentCount = () => app(() => window.app.m.silentNow.length);
+const pillWords = () => app(() => document.getElementById('firing').textContent);
+const changeLines = () => app(() => window.app.m.transitions.map((x) => x.words));
+const quietSpans = (id) => app((i) => { const a = window.app; const r = a.m.range(); return a.dash.panels.get(i).bindings.flatMap((b) => a.m.data.ruleSpans(b, r.t0, r.t1)).filter((s) => s.level === 'nodata'); }, id);
+
+let oldStops = nowS() - 300, newStarts = nowS() - 400, newStops = Infinity;
+prom.series.set('rooms', [
+  { metric: { room: 'old1' }, fn: (t) => (t >= oldStops ? null : 5) },
+  { metric: { room: 'old2' }, fn: (t) => (t >= oldStops ? null : 6) },
+  { metric: { room: 'old3' }, fn: (t) => (t >= oldStops ? null : 7) },
+  { metric: { room: 'new1' }, fn: (t) => (t < newStarts || t >= newStops ? null : 8) },
+]);
+await openDrawing([
+  { id: 'rb', x: 40, y: 40, w: 420, h: 220, label: 'rooms\nprod: rooms in e\nwarn above 100 for 5s' },
+  { id: 'rc', x: 500, y: 40, w: 700, h: 300, label: 'rooms chart\nchart\nprod: rooms in e\nwarn above 100 for 5s' },
+], { name: 'rooms.excalidraw' });
+await statusUntil('rb', 'ok');
+await sleep(1500);
+check('series that ended leave the rule ok', (await statusOf('rb')).level === 'ok' && (await statusOf('rc')).level === 'ok', await statusOf('rc'));
+check('the top bar does not count them as no data', await silentCount() === 0 && !/no data/.test(await pillWords()), await pillWords());
+check('what changed does not list them coming and going', !(await changeLines()).some((w) => /no data|data is back/.test(w)), await changeLines());
+check('the time strip does not mark them as no data', (await quietSpans('rb')).length === 0, await quietSpans('rb'));
+const roomWords = await readouts('rb');
+check('a box does not count an ended series among its numbers', roomWords.includes('8') && !roomWords.some((w) => /^\+\d/.test(w)), roomWords);
+const legendRooms = await readouts('rc');
+check('a chart keeps an ended series in its legend, for the part it covered', ['old1', 'new1'].every((x) => legendRooms.some((w) => w.includes(x))), legendRooms);
+check('and does not say it has no data', !legendRooms.includes('no data'), legendRooms);
+
+const rangeNow = await app(() => window.app.m.range());
+await app((t) => window.app.setMoment(t), nowS() - 500);
+await sleep(600);
+check('before the new series began, the ones that existed then say ok', (await statusOf('rb')).level === 'ok', await statusOf('rb'));
+await app((t) => window.app.setMoment(t), nowS() - 200);
+await sleep(600);
+check('after the old ones ended, the one that exists says ok', (await statusOf('rb')).level === 'ok', await statusOf('rb'));
+await p.keyboard.press('Escape');
+await p.keyboard.press('Escape');
+await until(() => window.app.m.time.live, 'live again');
+
+// All of them stop: that is a real no data, and it is one rule, not one line per series.
+newStops = nowS();
+await statusUntil('rb', 'nodata', 15);
+await until(() => window.app.m.silentNow.length > 0, 'the top bar to notice');
+const allSilent = await app(() => window.app.m.silentNow.map((x) => x.owner));
+check('when every series has stopped the rule says no data', new Set(allSilent).size === 1 && allSilent.length === 1, allSilent);
+check('the top bar counts one rule, not one per series', /^\D*1 with no data/.test(await pillWords()), await pillWords());
+const stoppedLines = await changeLines();
+check('what changed has one line for it', stoppedLines.filter((w) => /no data/.test(w)).length === 1, stoppedLines);
+// The range steps once a second, so the moment it went quiet may be just past the range's end.
+let stripSpans = [];
+for (let i = 0; i < 30 && !stripSpans.length; i++) { stripSpans = await quietSpans('rb'); if (!stripSpans.length) await sleep(120); }
+check('the time strip marks when nothing reported', stripSpans.length >= 1, stripSpans);
+await shot('30-all-series-stopped');
+newStops = Infinity;
+await statusUntil('rb', 'ok', 15);
+await sleep(800);
+
+// One series taking over from another, seen on a range whose points are far apart.
+const handover = nowS() - 2 * 86400;
+prom.series.set('rooms_reset', [
+  { metric: { room: 'before' }, fn: (t) => (t >= handover ? null : 5) },
+  { metric: { room: 'after' }, fn: (t) => (t < handover ? null : 6) },
+]);
+await openDrawing([{ id: 'rr', x: 40, y: 40, w: 420, h: 220, label: 'reset\nprod: rooms_reset in e\nwarn above 100 for 5s' }], { name: 'reset.excalidraw', span: 604800 });
+await statusUntil('rr', 'ok');
+await sleep(1500);
+check('on a long range, one series taking over from another is not a gap', !(await changeLines()).some((w) => /no data|data is back/.test(w)) && (await quietSpans('rr')).length === 0, await changeLines());
+
+// A firing series that ends drops out too, and says so once.
+let hotStops = Infinity;
+prom.series.set('rooms_hot', [
+  { metric: { room: 'hot' }, fn: (t) => (t >= hotStops ? null : 50) },
+  { metric: { room: 'cool' }, fn: () => 1 },
+]);
+await openDrawing([{ id: 'rh', x: 40, y: 40, w: 420, h: 220, label: 'rooms\nprod: rooms_hot in e\nwarn above 10 for 2s' }], { name: 'hot.excalidraw' });
+await statusUntil('rh', 'warn', 15);
+check('a series over its line fires, among others that are not', (await app(() => window.app.m.firingNow.length)) === 1);
+hotStops = nowS();
+await statusUntil('rh', 'ok', 15);
+check('when it ends the rule goes back to what is left', (await app(() => window.app.m.firingNow.length)) === 0 && await silentCount() === 0, await pillWords());
+check('and what changed says it stopped while firing', (await changeLines()).some((w) => /no data, so warn can't say/.test(w)), await changeLines());
+
+// ===========================================================================
+section('legends, and small panels');
+
+prom.series.set('sum by (role, reason) (deaths)', [
+  { metric: { reason: 'no-energy', role: 'upgrader' }, fn: () => 4 },
+  { metric: { reason: 'attacked', role: 'upgrader' }, fn: () => 3 },
+  { metric: { reason: 'no-energy', role: 'hauler' }, fn: () => 2 },
+]);
+await openDrawing([{ id: 'dl', x: 40, y: 40, w: 900, h: 320, label: 'deaths\nchart\nprod: sum by (role, reason) (deaths) in creeps' }], { name: 'legend.excalidraw' });
+const twoLabelLegend = await wordsUntil('dl', (w) => w.some((x) => x.includes('upgrader')), 'a legend with two labels');
+check('two labels show as their values, in the order the query names them', twoLabelLegend.some((x) => x.includes('upgrader no-energy')) && twoLabelLegend.some((x) => x.includes('hauler no-energy')), twoLabelLegend);
+check('with no label names taking the room', !twoLabelLegend.some((x) => /reason=|role=/.test(x)), twoLabelLegend);
+await shot('31-two-labels');
+
+await openDrawing([
+  { id: 'wide', x: 40, y: 40, w: 1500, h: 300, label: 'wide\nprod: long_metric in jobs' },
+  { id: 'smallbox', x: 40, y: 360, w: 150, h: 90, label: 'energy\nprod: long_metric in jobs' },
+  { id: 'tinybox', x: 210, y: 360, w: 50, h: 90, label: 'energy\nprod: long_metric in jobs' },
+], { name: 'small.excalidraw' });
+await wordsUntil('smallbox', (w) => w.some((x) => /9/.test(x)), 'a number on a small box');
+const small = await app(() => ({ box: window.app.headerOf('smallbox'), tiny: window.app.headerOf('tinybox'), scale: window.app.m.unit() }));
+check('a small box keeps its title with its number', small.box.shown === 'energy', small);
+check('one too small for any title still has its number', small.tiny.shown === null && (await readouts('tinybox')).some((x) => /9/.test(x)), await readouts('tinybox'));
+await shot('32-small');
+
+// ===========================================================================
+section('the same name, the same color');
+
+const chartColors = (id) => app((i) => { const s = window.app.plotOf(i).strips[0]; return Object.fromEntries(s.names.map((n, k) => [n, s.colors[k]])); }, id);
+const namesIn = (id, n) => until(({ i, n: count }) => window.app.plotOf(i)?.strips[0].names.length === count, `${id} to have ${n} lines`, 15, { i: id, n });
+const series = (label, rows) => Object.entries(rows).map(([value, v]) => ({ metric: { [label]: value }, fn: typeof v === 'function' ? v : () => v }));
+
+// The same roles, in another order and at other sizes, with one more on the second chart.
+prom.series.set('role_counts', series('role', { hauler: 63, miner: 36, worker: 8 }));
+prom.series.set('role_deaths', series('role', { worker: 40, scout: 20, miner: 9, hauler: 2 }));
+prom.series.set('one_line', () => 3);
+prom.series.set('one_miner', series('role', { miner: 5 }));
+await p.goto(`${DASH}#blank`);
+await p.reload();
+await until(() => window.app?.m.doc.length === 0, 'a blank board');
+await openDrawing([
+  { id: 'ca', x: 40, y: 40, w: 640, h: 320, label: 'creeps\nchart\nprod: role_counts in creeps' },
+  { id: 'cb', x: 700, y: 40, w: 640, h: 320, label: 'deaths\nchart\nprod: role_deaths in creeps' },
+  { id: 'cs', x: 40, y: 380, w: 640, h: 220, label: 'a number alone\nchart\nprod: one_line in things' },
+  { id: 'cm', x: 700, y: 380, w: 640, h: 220, label: 'miners\nchart\nprod: one_miner in creeps' },
+], { name: 'colors.excalidraw' });
+await namesIn('ca', 3);
+await namesIn('cb', 4);
+await sleep(600);
+const countColors = await chartColors('ca');
+const deathColors = await chartColors('cb');
+check('a name is one color on charts side by side', ['hauler', 'miner', 'worker'].every((n) => countColors[n] === deathColors[n]), { countColors, deathColors });
+check('though the charts rank them differently', (await app(() => window.app.plotOf('cb').strips[0].names[0])) === 'worker' && (await app(() => window.app.plotOf('ca').strips[0].names[0])) === 'hauler');
+check('a name only one chart has gets a color no other name has', !['hauler', 'miner', 'worker'].some((n) => countColors[n] === deathColors.scout), deathColors);
+check('a chart with one line stays the first color', Object.values(await chartColors('cs'))[0] === await app(() => window.app.m.theme.series[0]), await chartColors('cs'));
+check('unless its name already has one', Object.values(await chartColors('cm'))[0] === countColors.miner, await chartColors('cm'));
+await shot('33-same-colors');
+
+// Eight names take every color. New names must then share one between charts, but never within one.
+const eight = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`k${i}`, 80 - i]));
+prom.series.set('full_a', series('key', eight));
+prom.series.set('full_b', series('key', { fresh: 99, k0: 80 }));
+prom.series.set('full_c', series('key', { fresh: 99, k1: 79 }));
+await openDrawing([
+  { id: 'fa', x: 40, y: 40, w: 1300, h: 240, label: 'all\nchart\nprod: full_a in x' },
+  { id: 'fb', x: 40, y: 300, w: 640, h: 240, label: 'one new\nchart\nprod: full_b in x' },
+  { id: 'fc', x: 700, y: 300, w: 640, h: 240, label: 'clash\nchart\nprod: full_c in x' },
+], { name: 'full.excalidraw' });
+await namesIn('fa', 8);
+await namesIn('fb', 2);
+await namesIn('fc', 2);
+await sleep(600);
+const fullA = await chartColors('fa'), fullB = await chartColors('fb'), fullC = await chartColors('fc');
+check('with every color taken, the names already known keep theirs', fullB.k0 === fullA.k0, { fullA, fullB });
+check('and two names wanting one color still look different in one chart', new Set(Object.values(fullC)).size === 2 && new Set(Object.values(fullB)).size === 2, { fullB, fullC });
+
+// A chart that starts with one line and grows.
+prom.series.set('grows', [{ metric: { role: 'miner' }, fn: () => 5 }]);
+const growRows = [{ metric: { role: 'miner' }, fn: () => 5 }, { metric: { role: 'hauler' }, fn: () => 50 }];
+await openDrawing([
+  { id: 'cg', x: 40, y: 40, w: 640, h: 320, label: 'grows\nchart\nprod: grows in creeps' },
+  { id: 'ch', x: 700, y: 40, w: 640, h: 320, label: 'creeps\nchart\nprod: role_counts in creeps' },
+], { name: 'grows.excalidraw' });
+await namesIn('ch', 3);
+await sleep(600);
+prom.series.set('grows', growRows);
+await namesIn('cg', 2);
+await sleep(600);
+const grew = await chartColors('cg'), steady = await chartColors('ch');
+check('a chart that grows from one line to several joins in', grew.hauler === steady.hauler && grew.miner === steady.miner, { grew, steady });
+
+// The other tabs of a group, visited in either order.
+const sceneFile = (list) => JSON.stringify(draw(list));
+await p.route('**/scenes/scenes.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify([
+  { id: 'colors-a', group: 'ours', title: 'creeps', summary: '' },
+  { id: 'colors-b', group: 'ours', title: 'deaths', summary: '' },
+]) }));
+await p.route('**/scenes/colors-a.excalidraw', (route) => route.fulfill({ contentType: 'application/json', body: sceneFile([{ id: 'ta', x: 40, y: 40, w: 1000, h: 400, label: 'creeps\nchart\nprod: role_counts in creeps' }]) }));
+await p.route('**/scenes/colors-b.excalidraw', (route) => route.fulfill({ contentType: 'application/json', body: sceneFile([{ id: 'tb', x: 40, y: 40, w: 1000, h: 400, label: 'deaths\nchart\nprod: role_deaths in creeps' }]) }));
+await p.goto(`${DASH}#colors-a`);
+await p.reload();
+await until(() => window.app?.m.sceneId === 'colors-a', 'a scene with a chart');
+await namesIn('ta', 3);
+await sleep(400);
+const tabA = await chartColors('ta');
+await clickTab('colors-b');
+await namesIn('tb', 4);
+await sleep(400);
+const tabB = await chartColors('tb');
+check('a name keeps its color on another tab', ['hauler', 'miner', 'worker'].every((n) => tabA[n] === tabB[n]), { tabA, tabB });
+await clickTab('colors-a');
+await namesIn('ta', 3);
+await sleep(400);
+const tabAgain = await chartColors('ta');
+check('and coming back changes nothing', JSON.stringify(tabAgain) === JSON.stringify(tabA) || ['hauler', 'miner', 'worker'].every((n) => tabAgain[n] === tabA[n]), { tabAgain, tabA });
+await p.unroute('**/scenes/scenes.json');
+await p.unroute('**/scenes/colors-a.excalidraw');
+await p.unroute('**/scenes/colors-b.excalidraw');
+await p.goto(`${DASH}#blank`);
+await p.reload();
+await until(() => window.app?.m.doc.length === 0, 'a blank board');
 
 // ===========================================================================
 section('phone-sized window');

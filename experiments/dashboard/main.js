@@ -11,7 +11,7 @@ import { headerPlan, tooSmall, levelColor, levelFill, innerRect, createPainter, 
 import { createData } from './data.js';
 import { readDashboard, usesSource, allRules } from './read.js';
 import { createUi } from './ui.js';
-import { PARTS, readLabel } from './vocab.js';
+import { PARTS, parseTime, readLabel } from './vocab.js';
 
 const params = new URLSearchParams(location.search);
 const stageCanvas = document.getElementById('stage');
@@ -286,7 +286,7 @@ function reread() {
   syncFlowLoop();
 }
 
-function loadElements(elements, files, name, sceneId = null) {
+function loadElements(elements, files, name, sceneId = null, { keepTime = false } = {}) {
   closeEditor(false);
   // A drawing can only carry images inside itself. An address would be a way to send data out.
   const safeFiles = {};
@@ -300,14 +300,14 @@ function loadElements(elements, files, name, sceneId = null) {
   board.files = safeFiles;
   m.loadCount++;
   m.data.reset();
-  painter?.forgetRanks();
+  painter?.forgetRanks({ keepColors: keepTime });
   m.flows.clear();
   m.title = name;
   m.sceneId = sceneId;
   m.selected = null;
   m.past = [];
   m.future = [];
-  m.time = { ...m.time, live: true, end: null, at: null, cursor: null, span: m.time.span, stack: [] };
+  m.time = keepTime ? { ...m.time, cursor: null } : { ...m.time, live: true, end: null, at: null, cursor: null, span: m.time.span, stack: [] };
   reread();
   fitCamera();
   m.version++;
@@ -391,6 +391,9 @@ function setLive(on) {
   afterTimeChange();
 }
 
+// The server refuses a range over 31 days, and a range asks for a little more than it shows.
+const LONGEST_SPAN = 30 * 86400;
+
 function setSpan(seconds) {
   // A preset keeps what you were doing: it follows now if you were, and stays put if not.
   m.time.span = seconds;
@@ -411,7 +414,7 @@ function zoomTo(t0, t1) {
 
 function zoomOut() {
   const was = m.time.stack.pop();
-  if (!was) { m.time.span = Math.min(86400 * 7, m.time.span * 2); afterTimeChange(); return; }
+  if (!was) { m.time.span = Math.min(LONGEST_SPAN, m.time.span * 2); afterTimeChange(); return; }
   m.time.span = was.span;
   m.time.end = was.end;
   m.time.live = was.live;
@@ -867,6 +870,7 @@ async function openFile(name, words) {
     return;
   }
   const { elements, files } = parseScene(data);
+  keepDraft();
   history.replaceState(null, '', location.pathname + location.search);
   loadElements(elements, files, name);
   ui.say(`Opened ${name}.`);
@@ -890,16 +894,38 @@ addEventListener('drop', async (e) => {
 
 let scenes = [];
 
-async function loadScenePage(id) {
+// Another tab is one click away, so a dashboard you changed stays changed until the page reloads.
+const drafts = new Map();
+function keepDraft() {
+  if (!m.sceneId) return;
+  if (m.past.length || m.future.length) drafts.set(m.sceneId, { elements: m.doc, files: board.files, past: m.past, future: m.future });
+  else drafts.delete(m.sceneId);
+}
+
+/** A scene's span: seconds, or words such as 7d. Null if it has none the page can show. */
+function spanOf(span) {
+  const seconds = typeof span === 'string' ? parseTime(span) : span;
+  return Number.isFinite(seconds) && seconds > 0 ? Math.min(LONGEST_SPAN, seconds) : null;
+}
+
+let loadTicket = 0;
+async function loadScenePage(id, { keepTime = false } = {}) {
   const info = scenes.find((s) => s.id === id);
   if (!info) return;
-  const { elements, files } = await loadScene(`./scenes/${id}.excalidraw`);
-  m.time.span = info.span ?? m.time.span;
-  loadElements(elements, files, info.title, id);
+  const ticket = ++loadTicket;
+  keepDraft();
+  const draft = drafts.get(id);
+  const { elements, files } = draft ?? await loadScene(`./scenes/${id}.excalidraw`);
+  // Two quick clicks: only the last one counts, whichever file arrived first.
+  if (ticket !== loadTicket) return;
+  if (!keepTime) m.time.span = spanOf(info.span) ?? m.time.span;
+  loadElements(elements, files, info.title, id, { keepTime });
+  if (draft) { m.past = draft.past; m.future = draft.future; ui.refresh(); }
   history.replaceState(null, '', `${location.pathname}${location.search}#${id}`);
 }
 m.loadScene = loadScenePage;
 m.loadBlank = () => {
+  keepDraft();
   loadElements([], {}, 'a new dashboard');
   history.replaceState(null, '', `${location.pathname}${location.search}#blank`);
 };
@@ -1034,6 +1060,18 @@ if (wanted === 'blank') m.loadBlank();
 else if (scenes.some((s) => s.id === wanted)) await loadScenePage(wanted);
 else await loadScenePage(scenes[0].id);
 if (params.get('wall')) setWall(true);
+
+// A tab, a link, or back and forward. What you are looking at in time stays as it is.
+addEventListener('hashchange', async () => {
+  const wanted = location.hash.slice(1);
+  ui.closeGallery();
+  try {
+    if (wanted === 'blank') { if (m.sceneId) m.loadBlank(); }
+    else if (wanted !== m.sceneId) await loadScenePage(wanted, { keepTime: true });
+  } catch (err) {
+    ui.say(`Couldn't open ${wanted}: ${err.message}`, 'bad');
+  }
+});
 
 window.app = {
   m, board, toScreen, undo, redo, setLive, setSpan, setMoment, zoomOut, zoomTo, select, setTheme, setWall, saveFile, openFile, readLabel, loadScene: loadScenePage,
